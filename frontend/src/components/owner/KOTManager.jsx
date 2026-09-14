@@ -1,0 +1,506 @@
+import { useState, useEffect, useMemo, useRef } from "react";
+import { api } from "../../services/api";
+import KOTConfirmationNotifier from "./KOTConfirmationNotifier";
+import {
+  Printer,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Play,
+  Check,
+  Flame,
+  ChefHat,
+  Filter,
+  FileText,
+  Bed,
+  Grid,
+  Search,
+  RotateCcw,
+  MessageSquare
+} from "lucide-react";
+
+export default function KOTManager() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [confirmedOrderAlert, setConfirmedOrderAlert] = useState(null);
+  const orderKitchenStatusRef = useRef(new Map());
+  const isInitialLoadRef = useRef(true);
+
+  const fetchOrders = async () => {
+    try {
+      const data = await api.owner.getOrders();
+      if (Array.isArray(data)) {
+        const nextStatuses = new Map(data.map((order) => [order.id, order.kitchenStatus]));
+        if (isInitialLoadRef.current) {
+          isInitialLoadRef.current = false;
+          // If the admin confirmed an order before the KOT screen was opened,
+          // show it immediately with its complete item list.
+          const waitingForKitchen = data.find((order) => order.kitchenStatus === "confirmed");
+          if (waitingForKitchen) setConfirmedOrderAlert(waitingForKitchen);
+        } else {
+          const newlyConfirmed = data.find((order) =>
+            order.kitchenStatus === "confirmed" && orderKitchenStatusRef.current.get(order.id) !== "confirmed"
+          );
+          if (newlyConfirmed) setConfirmedOrderAlert(newlyConfirmed);
+        }
+        orderKitchenStatusRef.current = nextStatuses;
+        setOrders(data);
+      }
+    } catch (err) {
+      console.warn("KOT orders fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const kotTickets = useMemo(() => {
+    const getStation = (item) => {
+      const value = `${item.categoryNames || ""} ${item.itemName || ""}`.toLowerCase();
+      if (/(drink|beverage|juice|shake|coffee|tea|mocktail|bar)/.test(value)) return "Bar & Beverages";
+      if (/(tandoor|grill|barbecue|bbq|kebab)/.test(value)) return "Tandoor & Grill";
+      return "Main Kitchen";
+    };
+
+    return orders.flatMap((o) => {
+      const shortId = o.orderNumber ? o.orderNumber.slice(-4) : o.id;
+      const itemsByStation = (o.items || []).reduce((groups, item) => {
+        const station = getStation(item);
+        (groups[station] ||= []).push({
+          itemName: item.itemName,
+          quantity: item.quantity,
+          category: item.categoryNames || "Dishes",
+          notes: "",
+        });
+        return groups;
+      }, {});
+
+      return Object.entries(itemsByStation).map(([station, items]) => ({
+        id: `${o.id}-${station}`,
+        orderId: o.id,
+        kotNumber: `KOT-${shortId}`,
+        orderNumber: o.orderNumber,
+        location: o.tableNumber ? `Table ${o.tableNumber}` : "Takeaway",
+        locationType: o.tableNumber ? "table" : "counter",
+        orderType: o.orderType === "dine_in" ? "Dine-In" : "Takeaway",
+        station,
+        status: o.kitchenStatus || "pending",
+        createdAt: o.createdAt || new Date().toISOString(),
+        chefNote: o.kitchenNotes || "",
+        customerNote: o.notes || "",
+        items,
+      }));
+    });
+  }, [orders]);
+
+  const [stationFilter, setStationFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activePrintTicket, setActivePrintTicket] = useState(null);
+  const [chefNoteModalTicket, setChefNoteModalTicket] = useState(null);
+  const [newChefNote, setNewChefNote] = useState("");
+
+  const handleUpdateKOTStatus = async (ticketId, newStatus) => {
+    try {
+      await api.owner.updateKitchenStatus(ticketId, newStatus);
+      fetchOrders();
+    } catch (err) {
+      alert("Failed to update status: " + (err.message || "Error"));
+    }
+  };
+
+  const handleAcceptConfirmedOrder = async (order) => {
+    setConfirmedOrderAlert(null);
+    await handleUpdateKOTStatus(order.id, "preparing");
+  };
+
+  const handleSaveChefNote = async () => {
+    if (!chefNoteModalTicket) return;
+    try {
+      await api.owner.updateKitchenNote(chefNoteModalTicket.orderId, newChefNote);
+      setChefNoteModalTicket(null);
+      setNewChefNote("");
+      fetchOrders();
+    } catch (err) {
+      alert("Failed to save kitchen note: " + (err.message || "Error"));
+    }
+  };
+
+  const filteredTickets = useMemo(() => {
+    return kotTickets.filter((ticket) => {
+      const matchesStation =
+        stationFilter === "all" || ticket.station === stationFilter;
+      const matchesStatus =
+        statusFilter === "all" || ticket.status === statusFilter;
+      const matchesSearch =
+        ticket.kotNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ticket.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ticket.items.some((i) => i.itemName.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      return matchesStation && matchesStatus && matchesSearch;
+    });
+  }, [kotTickets, stationFilter, statusFilter, searchTerm]);
+
+  const pendingCount = kotTickets.filter((t) => t.status === "pending").length;
+  const preparingCount = kotTickets.filter((t) => t.status === "preparing").length;
+  const readyCount = kotTickets.filter((t) => t.status === "ready").length;
+
+  const getElapsedTime = (isoDate) => {
+    const mins = Math.max(1, Math.floor((Date.now() - new Date(isoDate).getTime()) / 60000));
+    return `${mins} min${mins > 1 ? "s" : ""} ago`;
+  };
+
+  return (
+    <div className="space-y-6 pb-12">
+      <KOTConfirmationNotifier
+        order={confirmedOrderAlert}
+        onStartCooking={handleAcceptConfirmedOrder}
+        onDismiss={() => setConfirmedOrderAlert(null)}
+      />
+      {/* Header & KOT Station Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+              <ChefHat className="w-5 h-5 text-orange-500" />
+              <span>KOT (Kitchen Order Display)</span>
+            </h1>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200 font-bold uppercase">
+              Live KDS Terminal
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Real-time kitchen tickets for dining tables and guest room service.
+          </p>
+        </div>
+
+        {/* Live Counter Badges */}
+        <div className="flex items-center gap-2">
+          <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold flex items-center gap-1.5">
+            <Flame className="w-4 h-4 text-amber-500 animate-bounce" />
+            <span>{pendingCount} Pending</span>
+          </div>
+
+          <div className="px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold flex items-center gap-1.5">
+            <Play className="w-3.5 h-3.5 text-blue-500" />
+            <span>{preparingCount} Cooking</span>
+          </div>
+
+          <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            <span>{readyCount} Ready</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Bar: Stations & Status */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+        {/* Station Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+          <span className="text-[11px] font-bold text-slate-400 uppercase mr-1">Station:</span>
+          {[
+            { id: "all", label: "All Kitchens" },
+            { id: "Main Kitchen", label: "Main Kitchen" },
+            { id: "Bar & Beverages", label: "Bar & Drinks" },
+            { id: "Tandoor & Grill", label: "Tandoor & Grill" },
+          ].map((st) => (
+            <button
+              key={st.id}
+              type="button"
+              onClick={() => setStationFilter(st.id)}
+              className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                stationFilter === st.id
+                  ? "bg-orange-500 text-white shadow-xs"
+                  : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
+              }`}
+            >
+              {st.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative w-full sm:w-64">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search KOT # or Room..."
+            className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-orange-500"
+          />
+        </div>
+      </div>
+
+      {/* KOT Tickets Grid */}
+      {filteredTickets.length === 0 ? (
+        <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-xs">
+          <ChefHat className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-sm font-bold text-slate-800">No Active KOT Tickets</h3>
+          <p className="text-xs text-slate-500 mt-1">All kitchen orders are cleared!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredTickets.map((ticket) => {
+            const isPending = ticket.status === "pending";
+            const isConfirmed = ticket.status === "confirmed";
+            const isPreparing = ticket.status === "preparing";
+            const isReady = ticket.status === "ready";
+
+            return (
+              <div
+                key={ticket.id}
+                className={`bg-white rounded-2xl p-5 border transition-all flex flex-col justify-between shadow-xs ${
+                  isPending
+                    ? "border-amber-300 bg-amber-50/10"
+                    : isConfirmed || isPreparing
+                    ? "border-blue-300 bg-blue-50/10"
+                    : "border-emerald-300 bg-emerald-50/10"
+                }`}
+              >
+                <div>
+                  {/* Top Bar: KOT #, Location, Order Type */}
+                  <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-bold text-slate-800 tracking-tight">
+                          {ticket.kotNumber}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize ${
+                            isPending
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : isConfirmed || isPreparing
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          }`}
+                        >
+                          {ticket.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600 font-bold mt-1">
+                        {ticket.locationType === "room" ? (
+                          <Bed className="w-4 h-4 text-orange-500" />
+                        ) : (
+                          <Grid className="w-4 h-4 text-slate-500" />
+                        )}
+                        <span>{ticket.location}</span>
+                        <span>•</span>
+                        <span className="text-slate-500 font-medium">{ticket.orderType}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 justify-end">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span>{getElapsedTime(ticket.createdAt)}</span>
+                      </span>
+                      <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200 mt-1 inline-block">
+                        {ticket.station}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Chef Note Alert */}
+                  {ticket.chefNote && (
+                    <div className="mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold flex items-center gap-2">
+                      <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Note: {ticket.chefNote}</span>
+                    </div>
+                  )}
+
+                  {/* Items List */}
+                  <div className="py-4 space-y-2.5">
+                    {ticket.items.map((item, idx) => (
+                      <div key={idx} className="flex items-start justify-between text-xs pb-2 border-b border-slate-100 last:border-0">
+                        <div className="flex items-start gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-orange-50 text-orange-600 border border-orange-200 font-bold text-xs flex items-center justify-center shrink-0">
+                            {item.quantity}x
+                          </span>
+                          <div>
+                            <div className="font-bold text-slate-800">{item.itemName}</div>
+                            {item.notes && (
+                              <div className="text-[11px] text-amber-600 italic font-medium">
+                                Option: {item.notes}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {item.category}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bottom Action Controls */}
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {(isPending || isConfirmed) && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateKOTStatus(ticket.orderId, "preparing")}
+                        className="col-span-2 py-2 px-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                      >
+                        <Flame className="w-3.5 h-3.5" />
+                        <span>Start Cooking</span>
+                      </button>
+                    )}
+
+                    {isPreparing && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateKOTStatus(ticket.orderId, "ready")}
+                        className="col-span-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Mark Order Ready</span>
+                      </button>
+                    )}
+
+                    {isReady && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateKOTStatus(ticket.orderId, "completed")}
+                        className="col-span-2 py-2 px-3 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Served & Completed</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActivePrintTicket(ticket)}
+                      className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-200 transition-colors cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Print KOT</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setChefNoteModalTicket(ticket);
+                        setNewChefNote(ticket.chefNote || "");
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-200 transition-colors cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Add Note</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* PRINT KOT MODAL */}
+      {activePrintTicket && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 border border-slate-200 shadow-xl relative">
+            <div className="text-center space-y-2 pb-4 border-b border-slate-200">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                KITCHEN ORDER TICKET (KOT)
+              </div>
+              <h2 className="text-lg font-bold text-slate-800">{activePrintTicket.kotNumber}</h2>
+              <div className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200 inline-block">
+                {activePrintTicket.location} ({activePrintTicket.orderType})
+              </div>
+            </div>
+
+            <div className="py-4 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-500 text-[11px] font-medium">
+                <span>Station: {activePrintTicket.station}</span>
+                <span>Time: {new Date(activePrintTicket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+
+              {activePrintTicket.chefNote && (
+                <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px]">
+                  Note: {activePrintTicket.chefNote}
+                </div>
+              )}
+
+              <div className="border-t border-b border-slate-200 py-3 space-y-2 my-2">
+                {activePrintTicket.items.map((it, i) => (
+                  <div key={i} className="flex justify-between font-bold text-slate-800 text-xs">
+                    <span>{it.quantity}x {it.itemName}</span>
+                    <span className="text-slate-500 font-medium">{it.notes || "-"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setActivePrintTicket(null)}
+                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  window.print();
+                  setActivePrintTicket(null);
+                }}
+                className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Thermal Slip</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CHEF NOTE MODAL */}
+      {chefNoteModalTicket && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 border border-slate-200 shadow-xl relative">
+            <h2 className="text-base font-bold text-slate-800 mb-3">
+              Add Chef / Kitchen Note ({chefNoteModalTicket.kotNumber})
+            </h2>
+
+            <textarea
+              rows="3"
+              value={newChefNote}
+              onChange={(e) => setNewChefNote(e.target.value)}
+              placeholder="e.g. Less oil, extra green chillies, serve with mint sauce..."
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-orange-500"
+            />
+
+            <div className="flex items-center justify-end gap-2 pt-4">
+              <button
+                type="button"
+                onClick={() => setChefNoteModalTicket(null)}
+                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveChefNote}
+                className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold cursor-pointer shadow-xs"
+              >
+                Save Note
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
