@@ -47,14 +47,33 @@ async function createMenuItem(data) {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+
+    if (!data.categoryIds || !data.categoryIds.length) {
+      const [existingCats] = await connection.query(
+        "SELECT id FROM categories WHERE restaurant_id = ? AND is_active = 1 LIMIT 1",
+        [data.restaurantId]
+      );
+      if (existingCats.length) {
+        data.categoryIds = [existingCats[0].id];
+      } else {
+        const [newCat] = await connection.query(
+          "INSERT INTO categories (restaurant_id, name, description, display_order) VALUES (?, 'Main Menu', 'General menu dishes', 1)",
+          [data.restaurantId]
+        );
+        data.categoryIds = [newCat.insertId];
+      }
+    }
+
     if (!(await categoriesBelongToRestaurant(connection, data.restaurantId, data.categoryIds))) {
-      const error = new Error("One or more categories do not belong to this restaurant");
+      const error = new Error("One or more selected categories do not belong to this restaurant");
       error.status = 400;
       throw error;
     }
+
+    const isAvail = data.isAvailable !== false && data.isAvailable !== 0 && data.isAvailable !== "0" && data.isAvailable !== "false";
     const [result] = await connection.query(
       "INSERT INTO menu_items (restaurant_id, name, description, price, image_url, image_public_id, is_available) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [data.restaurantId, data.name, data.description || null, data.price, data.imageUrl || null, data.imagePublicId || null, data.isAvailable ?? true],
+      [data.restaurantId, data.name, data.description || null, data.price, data.imageUrl || null, data.imagePublicId || null, isAvail ? 1 : 0],
     );
     await replaceCategories(connection, data.restaurantId, result.insertId, data.categoryIds);
     await connection.commit();
@@ -82,9 +101,10 @@ async function updateMenuItem(id, data) {
       error.status = 400;
       throw error;
     }
+    const isAvail = data.isAvailable !== false && data.isAvailable !== 0 && data.isAvailable !== "0" && data.isAvailable !== "false";
     await connection.query(
       "UPDATE menu_items SET name = ?, description = ?, price = ?, image_url = ?, image_public_id = ?, is_available = ? WHERE id = ?",
-      [data.name, data.description || null, data.price, data.imageUrl || null, data.imagePublicId || null, data.isAvailable ?? true, id],
+      [data.name, data.description || null, data.price, data.imageUrl || null, data.imagePublicId || null, isAvail ? 1 : 0, id],
     );
     await replaceCategories(connection, data.restaurantId, id, data.categoryIds);
     await connection.commit();

@@ -3,7 +3,12 @@ const db = require("../config/database");
 async function findAll(restaurantId) {
   const [rows] = await db.query(
     `SELECT rt.id, rt.restaurant_id AS restaurantId, rt.table_number AS tableNumber,
-            rt.capacity, rt.status, rt.qr_token AS qrToken, rt.created_at AS createdAt,
+            rt.capacity,
+            CASE
+              WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) = 0 THEN 'available'
+              ELSE rt.status
+            END AS status,
+            rt.qr_token AS qrToken, rt.created_at AS createdAt,
             (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status IN ('pending', 'confirmed', 'preparing', 'ready')) AS activeOrdersCount
      FROM restaurant_tables rt
      WHERE rt.restaurant_id = ?

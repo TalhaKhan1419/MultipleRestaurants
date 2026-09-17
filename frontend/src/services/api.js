@@ -1,14 +1,18 @@
 const API_BASE = "/api";
-let activeToken = null;
+let activeToken = localStorage.getItem("token") || null;
 
 function getToken() {
-  return activeToken;
+  return activeToken || localStorage.getItem("token");
 }
 
-// Keep authentication only for the running app. Reloading/reopening the app
-// starts with no token and therefore shows the login screen.
+// Persist authentication token across browser refreshes
 export function setAuthToken(token) {
   activeToken = token;
+  if (token) {
+    localStorage.setItem("token", token);
+  } else {
+    localStorage.removeItem("token");
+  }
 }
 
 function getSelectedRestaurantId() {

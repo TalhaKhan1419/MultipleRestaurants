@@ -1,15 +1,44 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { api, setAuthToken } from "../services/api";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  // Do not restore a previous login when the application is opened or reloaded.
-  // An admin must sign in again whenever the app starts.
-  const [token, setToken] = useState(null);
-  const [loading] = useState(false);
+  const [token, setToken] = useState(() => localStorage.getItem("token"));
+  const [loading, setLoading] = useState(true);
   const [selectedRestaurantId, setSelectedRestaurantIdState] = useState(() => localStorage.getItem("selectedRestaurantId"));
+
+  useEffect(() => {
+    const checkAuthSession = async () => {
+      const storedToken = localStorage.getItem("token");
+      if (storedToken) {
+        setAuthToken(storedToken);
+        try {
+          const userData = await api.auth.getMe();
+          setUser(userData);
+          setToken(storedToken);
+          if (userData.restaurantId) {
+            setSelectedRestaurantId(userData.restaurantId);
+          }
+        } catch (_) {
+          // Token expired or invalid
+          setAuthToken(null);
+          localStorage.removeItem("token");
+          localStorage.removeItem("selectedRestaurantId");
+          setToken(null);
+          setUser(null);
+        }
+      } else {
+        setAuthToken(null);
+        setToken(null);
+        setUser(null);
+      }
+      setLoading(false);
+    };
+
+    checkAuthSession();
+  }, []);
 
   const login = async (email, password) => {
     const data = await api.auth.login({ email, password });

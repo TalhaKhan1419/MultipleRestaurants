@@ -60,41 +60,32 @@ export default function KOTManager() {
   }, []);
 
   const kotTickets = useMemo(() => {
-    const getStation = (item) => {
-      const value = `${item.categoryNames || ""} ${item.itemName || ""}`.toLowerCase();
-      if (/(drink|beverage|juice|shake|coffee|tea|mocktail|bar)/.test(value)) return "Bar & Beverages";
-      if (/(tandoor|grill|barbecue|bbq|kebab)/.test(value)) return "Tandoor & Grill";
-      return "Main Kitchen";
-    };
-
-    return orders.flatMap((o) => {
+    return orders.map((o) => {
       const shortId = o.orderNumber ? o.orderNumber.slice(-4) : o.id;
-      const itemsByStation = (o.items || []).reduce((groups, item) => {
-        const station = getStation(item);
-        (groups[station] ||= []).push({
-          itemName: item.itemName,
-          quantity: item.quantity,
-          category: item.categoryNames || "Dishes",
-          notes: "",
-        });
-        return groups;
-      }, {});
+      const items = (o.items || []).map((item) => ({
+        itemName: item.itemName,
+        quantity: item.quantity,
+        category: item.categoryNames || "Dishes",
+        notes: item.notes || "",
+      }));
 
-      return Object.entries(itemsByStation).map(([station, items]) => ({
-        id: `${o.id}-${station}`,
+      return {
+        id: o.id,
         orderId: o.id,
         kotNumber: `KOT-${shortId}`,
         orderNumber: o.orderNumber,
+        customerName: o.customerName || "",
+        customerPhone: o.customerPhone || "",
         location: o.tableNumber ? `Table ${o.tableNumber}` : "Takeaway",
         locationType: o.tableNumber ? "table" : "counter",
         orderType: o.orderType === "dine_in" ? "Dine-In" : "Takeaway",
-        station,
+        station: "Main Kitchen",
         status: o.kitchenStatus || "pending",
         createdAt: o.createdAt || new Date().toISOString(),
         chefNote: o.kitchenNotes || "",
         customerNote: o.notes || "",
         items,
-      }));
+      };
     });
   }, [orders]);
 
@@ -245,7 +236,7 @@ export default function KOTManager() {
           <p className="text-xs text-slate-500 mt-1">All kitchen orders are cleared!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-3">
           {filteredTickets.map((ticket) => {
             const isPending = ticket.status === "pending";
             const isConfirmed = ticket.status === "confirmed";
@@ -255,7 +246,7 @@ export default function KOTManager() {
             return (
               <div
                 key={ticket.id}
-                className={`bg-white rounded-2xl p-5 border transition-all flex flex-col justify-between shadow-xs ${
+                className={`bg-white rounded-xl p-3 border transition-all flex flex-col justify-between shadow-2xs ${
                   isPending
                     ? "border-amber-300 bg-amber-50/10"
                     : isConfirmed || isPreparing
@@ -265,14 +256,14 @@ export default function KOTManager() {
               >
                 <div>
                   {/* Top Bar: KOT #, Location, Order Type */}
-                  <div className="flex items-start justify-between pb-3 border-b border-slate-100">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-bold text-slate-800 tracking-tight">
+                  <div className="flex items-start justify-between pb-2 border-b border-slate-100 gap-1">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-black text-slate-800 tracking-tight">
                           {ticket.kotNumber}
                         </span>
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize ${
+                          className={`text-[8px] font-extrabold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
                             isPending
                               ? "bg-amber-50 text-amber-700 border-amber-200"
                               : isConfirmed || isPreparing
@@ -283,24 +274,33 @@ export default function KOTManager() {
                           {ticket.status}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-600 font-bold mt-1">
+                      <div className="flex items-center gap-1 text-[11px] text-slate-600 font-bold mt-0.5 truncate">
                         {ticket.locationType === "room" ? (
-                          <Bed className="w-4 h-4 text-orange-500" />
+                          <Bed className="w-3 h-3 text-orange-500 shrink-0" />
                         ) : (
-                          <Grid className="w-4 h-4 text-slate-500" />
+                          <Grid className="w-3 h-3 text-slate-500 shrink-0" />
                         )}
-                        <span>{ticket.location}</span>
+                        <span className="truncate">{ticket.location}</span>
                         <span>•</span>
-                        <span className="text-slate-500 font-medium">{ticket.orderType}</span>
+                        <span className="text-slate-500 font-medium truncate">{ticket.orderType}</span>
                       </div>
+                      {ticket.customerName && (
+                        <div className="text-[10px] font-semibold text-slate-700 mt-0.5 flex items-center gap-1 truncate">
+                          <span className="text-slate-400 font-normal shrink-0">Cust:</span>
+                          <span className="text-slate-900 font-bold truncate" title={ticket.customerName}>{ticket.customerName}</span>
+                          {ticket.customerPhone && ticket.customerPhone !== "0000000000" && (
+                            <span className="text-slate-500 text-[9px] shrink-0">({ticket.customerPhone})</span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 justify-end">
-                        <Clock className="w-3 h-3 text-slate-400" />
+                    <div className="text-right shrink-0">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-0.5 justify-end">
+                        <Clock className="w-2.5 h-2.5 text-slate-400" />
                         <span>{getElapsedTime(ticket.createdAt)}</span>
                       </span>
-                      <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200 mt-1 inline-block">
+                      <span className="text-[8.5px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.2 rounded border border-orange-200 mt-0.5 inline-block">
                         {ticket.station}
                       </span>
                     </div>
@@ -308,31 +308,31 @@ export default function KOTManager() {
 
                   {/* Chef Note Alert */}
                   {ticket.chefNote && (
-                    <div className="mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold flex items-center gap-2">
-                      <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>Note: {ticket.chefNote}</span>
+                    <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-semibold flex items-center gap-1.5">
+                      <MessageSquare className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span className="truncate">Note: {ticket.chefNote}</span>
                     </div>
                   )}
 
                   {/* Items List */}
-                  <div className="py-4 space-y-2.5">
+                  <div className="py-2.5 space-y-2">
                     {ticket.items.map((item, idx) => (
-                      <div key={idx} className="flex items-start justify-between text-xs pb-2 border-b border-slate-100 last:border-0">
-                        <div className="flex items-start gap-2">
-                          <span className="w-6 h-6 rounded-lg bg-orange-50 text-orange-600 border border-orange-200 font-bold text-xs flex items-center justify-center shrink-0">
+                      <div key={idx} className="flex items-start justify-between text-xs pb-1.5 border-b border-slate-100 last:border-0 gap-1">
+                        <div className="flex items-start gap-1.5 min-w-0">
+                          <span className="w-5 h-5 rounded-md bg-orange-50 text-orange-600 border border-orange-200 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
                             {item.quantity}x
                           </span>
-                          <div>
-                            <div className="font-bold text-slate-800">{item.itemName}</div>
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-800 text-[11px] leading-tight truncate">{item.itemName}</div>
                             {item.notes && (
-                              <div className="text-[11px] text-amber-600 italic font-medium">
-                                Option: {item.notes}
+                              <div className="text-[10px] text-amber-600 italic font-medium truncate">
+                                Opt: {item.notes}
                               </div>
                             )}
                           </div>
                         </div>
 
-                        <span className="text-[10px] text-slate-400 font-medium">
+                        <span className="text-[9px] text-slate-400 font-medium shrink-0">
                           {item.category}
                         </span>
                       </div>
@@ -341,15 +341,15 @@ export default function KOTManager() {
                 </div>
 
                 {/* Bottom Action Controls */}
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                  <div className="grid grid-cols-2 gap-1.5">
                     {(isPending || isConfirmed) && (
                       <button
                         type="button"
                         onClick={() => handleUpdateKOTStatus(ticket.orderId, "preparing")}
-                        className="col-span-2 py-2 px-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        className="col-span-2 py-1.5 px-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold flex items-center justify-center gap-1 shadow-2xs transition-colors cursor-pointer"
                       >
-                        <Flame className="w-3.5 h-3.5" />
+                        <Flame className="w-3 h-3" />
                         <span>Start Cooking</span>
                       </button>
                     )}
@@ -358,9 +358,9 @@ export default function KOTManager() {
                       <button
                         type="button"
                         onClick={() => handleUpdateKOTStatus(ticket.orderId, "ready")}
-                        className="col-span-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        className="col-span-2 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1 shadow-2xs transition-colors cursor-pointer"
                       >
-                        <Check className="w-3.5 h-3.5" />
+                        <Check className="w-3 h-3" />
                         <span>Mark Order Ready</span>
                       </button>
                     )}
@@ -369,21 +369,21 @@ export default function KOTManager() {
                       <button
                         type="button"
                         onClick={() => handleUpdateKOTStatus(ticket.orderId, "completed")}
-                        className="col-span-2 py-2 px-3 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="col-span-2 py-1.5 px-2 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                         <span>Served & Completed</span>
                       </button>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5">
                     <button
                       type="button"
                       onClick={() => setActivePrintTicket(ticket)}
-                      className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-200 transition-colors cursor-pointer"
+                      className="py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center gap-1 border border-slate-200 transition-colors cursor-pointer"
                     >
-                      <Printer className="w-3.5 h-3.5 text-slate-500" />
+                      <Printer className="w-3 h-3 text-slate-500" />
                       <span>Print KOT</span>
                     </button>
 
@@ -393,9 +393,9 @@ export default function KOTManager() {
                         setChefNoteModalTicket(ticket);
                         setNewChefNote(ticket.chefNote || "");
                       }}
-                      className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-200 transition-colors cursor-pointer"
+                      className="py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center gap-1 border border-slate-200 transition-colors cursor-pointer"
                     >
-                      <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+                      <MessageSquare className="w-3 h-3 text-slate-500" />
                       <span>Add Note</span>
                     </button>
                   </div>
@@ -425,6 +425,16 @@ export default function KOTManager() {
                 <span>Station: {activePrintTicket.station}</span>
                 <span>Time: {new Date(activePrintTicket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
+
+              {activePrintTicket.customerName && (
+                <div className="text-xs font-semibold text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                  <span className="text-slate-400">Customer: </span>
+                  <span className="font-bold text-slate-900">{activePrintTicket.customerName}</span>
+                  {activePrintTicket.customerPhone && activePrintTicket.customerPhone !== "0000000000" && (
+                    <span className="text-slate-500 font-normal"> ({activePrintTicket.customerPhone})</span>
+                  )}
+                </div>
+              )}
 
               {activePrintTicket.chefNote && (
                 <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px]">

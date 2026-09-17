@@ -28,12 +28,15 @@ export default function NewOrderNotifier({ onOpenOrder, onPendingCountChange }) 
 
     // Trigger Popup alert
     setActiveAlert(order);
-    setPendingCount((prev) => {
-      const next = prev + 1;
-      if (onPendingCountChange) onPendingCountChange(next);
-      return next;
-    });
+    setPendingCount((prev) => prev + 1);
   };
+
+  // Safely notify parent component of pending count changes after React render phase
+  useEffect(() => {
+    if (onPendingCountChange && pendingCount > 0) {
+      onPendingCountChange(pendingCount);
+    }
+  }, [pendingCount, onPendingCountChange]);
 
 
   // 1. Initial fetch to populate already existing orders (so they don't trigger alerts on refresh)

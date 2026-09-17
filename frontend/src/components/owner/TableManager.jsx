@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../../services/api";
+import CustomerDetailsModal from "./CustomerDetailsModal";
+import TableOrderMenuModal from "./TableOrderMenuModal";
 import {
   Plus,
   QrCode,
@@ -20,10 +22,15 @@ import {
   Sparkles
 } from "lucide-react";
 
-export default function TableManager() {
+export default function TableManager({ initialMode = "tables" }) {
   // Mode Switcher: 'tables' or 'rooms'
-  const [activeMode, setActiveMode] = useState("rooms");
+  const [activeMode, setActiveMode] = useState(initialMode);
   const [roomServiceOn, setRoomServiceOn] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'available', 'occupied'
+
+  useEffect(() => {
+    setActiveMode(initialMode);
+  }, [initialMode]);
 
   // Dining Tables State
   const [tables, setTables] = useState([]);
@@ -35,9 +42,25 @@ export default function TableManager() {
     { id: "r101", roomNumber: "101", type: "Deluxe Suite", floor: "1st Floor", capacity: 2, status: "occupied", activeOrdersCount: 1 },
     { id: "r102", roomNumber: "102", type: "Standard Room", floor: "1st Floor", capacity: 2, status: "available", activeOrdersCount: 0 },
     { id: "r201", roomNumber: "201", type: "Executive Suite", floor: "2nd Floor", capacity: 4, status: "occupied", activeOrdersCount: 2 },
-    { id: "r202", roomNumber: "202", type: "Presidential Suite", floor: "2nd Floor", capacity: 4, status: "reserved", activeOrdersCount: 0 },
-    { id: "r301", roomNumber: "301", type: "Deluxe Double", floor: "3rd Floor", capacity: 3, status: "cleaning", activeOrdersCount: 0 },
+    { id: "r202", roomNumber: "202", type: "Presidential Suite", floor: "2nd Floor", capacity: 4, status: "available", activeOrdersCount: 0 },
+    { id: "r301", roomNumber: "301", type: "Deluxe Double", floor: "3rd Floor", capacity: 3, status: "available", activeOrdersCount: 0 },
   ]);
+
+  // Status Filter Computations
+  const currentList = activeMode === "rooms" ? rooms : tables;
+  const availableCount = currentList.filter((i) => i.status === "available").length;
+  const occupiedCount = currentList.filter((i) => i.status === "occupied").length;
+  const filteredRooms = rooms.filter((r) => statusFilter === "all" || r.status === statusFilter);
+  const filteredTables = tables.filter((t) => statusFilter === "all" || t.status === statusFilter);
+
+  // Customer Popup & Order Modal State
+  const [customerDetailsPopupOpen, setCustomerDetailsPopupOpen] = useState(false);
+  const [targetItemForPopup, setTargetItemForPopup] = useState(null);
+  const [targetItemType, setTargetItemType] = useState("Table");
+  const [isMenuOrderModalOpen, setIsMenuOrderModalOpen] = useState(false);
+  const [selectedTableForOrder, setSelectedTableForOrder] = useState(null);
+  const [initialCustomerName, setInitialCustomerName] = useState("");
+  const [initialCustomerPhone, setInitialCustomerPhone] = useState("");
 
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -89,6 +112,27 @@ export default function TableManager() {
   useEffect(() => {
     fetchTables();
   }, []);
+
+  const handleCardClick = (item, type = "Table") => {
+    if (item.status === "available") {
+      setTargetItemForPopup(item);
+      setTargetItemType(type === "room" ? "Room" : "Table");
+      setCustomerDetailsPopupOpen(true);
+    } else {
+      setSelectedTableForOrder(item);
+      setInitialCustomerName("");
+      setInitialCustomerPhone("");
+      setIsMenuOrderModalOpen(true);
+    }
+  };
+
+  const handleCustomerDetailsConfirm = (name, phone) => {
+    setCustomerDetailsPopupOpen(false);
+    setSelectedTableForOrder(targetItemForPopup);
+    setInitialCustomerName(name);
+    setInitialCustomerPhone(phone);
+    setIsMenuOrderModalOpen(true);
+  };
 
   // Open Modal for Table
   const handleOpenAddTable = () => {
@@ -171,6 +215,27 @@ export default function TableManager() {
       setModalError(err.message || "Failed to save");
     } finally {
       setModalLoading(false);
+    }
+  };
+
+  const handleTableStatusChange = async (tableId, newStatus) => {
+    try {
+      setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, status: newStatus } : t)));
+      await api.owner.updateTableStatus(tableId, newStatus);
+      fetchTables();
+    } catch (err) {
+      console.error(err);
+      fetchTables();
+    }
+  };
+
+  const handleDeleteTable = async (tableId) => {
+    if (!window.confirm("Are you sure you want to delete this table?")) return;
+    try {
+      await api.owner.deleteTable(tableId);
+      fetchTables();
+    } catch (err) {
+      alert(err.message || "Failed to delete table");
     }
   };
 
@@ -289,103 +354,131 @@ export default function TableManager() {
         </div>
       </div>
 
+      {/* Live Status Summary & Filter Bar (Total, Available, Occupied) */}
+      <div className="flex items-center gap-2 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs overflow-x-auto">
+        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 px-2 shrink-0">
+          Live Status Overview:
+        </span>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter("all")}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2 border ${
+            statusFilter === "all"
+              ? "bg-slate-900 text-white border-slate-900 shadow-2xs"
+              : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+          }`}
+        >
+          <span>All {activeMode === "rooms" ? "Rooms" : "Tables"}</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusFilter === "all" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
+            {currentList.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter("available")}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2 border ${
+            statusFilter === "available"
+              ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+              : "bg-emerald-50 text-emerald-700 border-emerald-200/90 hover:bg-emerald-100"
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+          <span>Available</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusFilter === "available" ? "bg-white/20 text-white" : "bg-emerald-200/60 text-emerald-800"}`}>
+            {availableCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter("occupied")}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2 border ${
+            statusFilter === "occupied"
+              ? "bg-amber-500 text-white border-amber-500 shadow-2xs"
+              : "bg-amber-50 text-amber-700 border-amber-200/90 hover:bg-amber-100"
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 animate-pulse" />
+          <span>Occupied</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${statusFilter === "occupied" ? "bg-white/20 text-white" : "bg-amber-200/60 text-amber-800"}`}>
+            {occupiedCount}
+          </span>
+        </button>
+      </div>
+
       {/* ROOMS VIEW */}
       {activeMode === "rooms" && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {rooms.map((room) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2.5">
+            {filteredRooms.map((room) => (
               <div
                 key={room.id}
-                className={`bg-white rounded-2xl p-5 border shadow-xs hover:shadow-md transition-all flex flex-col justify-between ${
+                onClick={() => handleOpenEditItem(room, "room")}
+                className={`bg-white rounded-xl p-3 border shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between aspect-square cursor-pointer group hover:border-orange-400 ${
                   room.status === "occupied" ? "border-amber-300 bg-amber-50/10" : "border-slate-200"
                 }`}
               >
                 <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-600 font-bold text-base shadow-xs">
-                        <Bed className="w-6 h-6 text-orange-600" />
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-600 font-bold text-xs shadow-2xs group-hover:scale-105 transition-transform shrink-0">
+                        <Bed className="w-4 h-4 text-orange-600" />
                       </div>
-                      <div>
-                        <div className="font-bold text-slate-800 text-base">
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-800 text-xs truncate group-hover:text-orange-600 transition-colors">
                           Room {room.roomNumber}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                        <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium truncate">
                           <span>{room.type}</span>
-                          <span>•</span>
-                          <span>{room.floor}</span>
                         </div>
-                        {room.activeOrdersCount > 0 && (
-                          <div className="flex items-center gap-1 text-[11px] text-amber-600 font-bold mt-1">
-                            <Bell className="w-3 h-3 animate-bounce" />
-                            <span>{room.activeOrdersCount} active room order(s)</span>
-                          </div>
-                        )}
                       </div>
                     </div>
 
                     <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                        roomStatusStyles[room.status] || "bg-slate-100 text-slate-700"
+                      className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-md border shrink-0 whitespace-nowrap ${
+                        room.status === "occupied"
+                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
                       }`}
                     >
                       {room.status}
                     </span>
                   </div>
 
-                  {/* Room Status Switcher */}
-                  <div className="mt-4 pt-3 border-t border-slate-100">
-                    <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1.5">
-                      Change Room Status
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {["available", "occupied", "reserved", "cleaning"].map((st) => (
-                        <button
-                          key={st}
-                          type="button"
-                          onClick={() => handleRoomStatusChange(room.id, st)}
-                          className={`px-2 py-1 rounded-lg text-[10px] capitalize font-medium transition-all cursor-pointer ${
-                            room.status === st
-                              ? "bg-orange-500 text-white font-bold shadow-xs"
-                              : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-                          }`}
-                        >
-                          {st}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="text-[10px] text-slate-400 font-medium mt-1">
+                    {room.floor}
                   </div>
+
+                  {room.activeOrdersCount > 0 && (
+                    <div className="flex items-center gap-1 text-[10px] text-amber-600 font-bold mt-1.5">
+                      <Bell className="w-3 h-3 animate-bounce shrink-0" />
+                      <span className="truncate">{room.activeOrdersCount} order(s)</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Bottom Actions */}
-                <div className="flex items-center justify-between gap-2 mt-5 pt-3 border-t border-slate-100">
+                {/* Bottom Actions for Room */}
+                <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
-                    onClick={() => handleOpenQrModal(room, "room")}
-                    className="px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    onClick={() => handleOpenEditItem(room, "room")}
+                    className="px-1.5 py-0.5 rounded text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-semibold"
+                    title="Edit Room"
                   >
-                    <QrCode className="w-3.5 h-3.5" />
-                    <span>Room QR</span>
+                    <Edit2 className="w-3 h-3" />
+                    <span>Edit</span>
                   </button>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditItem(room, "room")}
-                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
-                      title="Edit Room"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteRoom(room.id)}
-                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
-                      title="Delete Room"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteRoom(room.id)}
+                    className="px-1.5 py-0.5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-semibold"
+                    title="Delete Room"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Delete</span>
+                  </button>
                 </div>
               </div>
             ))}
@@ -395,42 +488,86 @@ export default function TableManager() {
 
       {/* TABLES VIEW */}
       {activeMode === "tables" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {tables.map((table) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2.5">
+          {filteredTables.map((table) => (
             <div
               key={table.id}
-              className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+              onClick={() => handleCardClick(table, "table")}
+              className="bg-white rounded-xl p-3 border border-slate-200 hover:border-orange-400 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between aspect-square cursor-pointer group"
             >
               <div>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 font-bold text-base">
+                <div className="flex items-start justify-between gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 font-black text-[11px] group-hover:scale-105 transition-transform shrink-0">
                       {table.tableNumber}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
-                        <Users className="w-3.5 h-3.5 text-slate-400" />
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-800 text-xs truncate group-hover:text-orange-600 transition-colors">
+                        Table {table.tableNumber}
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium">
+                        <Users className="w-3 h-3 text-slate-400 shrink-0" />
                         <span>{table.capacity} Seats</span>
                       </div>
                     </div>
                   </div>
 
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                  <span
+                    className={`text-[8px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-md border shrink-0 ${
+                      table.status === "occupied"
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    }`}
+                  >
                     {table.status}
                   </span>
                 </div>
               </div>
 
               {/* Bottom Actions */}
-              <div className="flex items-center justify-between gap-2 mt-5 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-between gap-1 mt-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => handleOpenQrModal(table, "table")}
-                  className="px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCardClick(table, "table");
+                  }}
+                  className={`px-2 py-0.5 rounded-md border text-[10px] font-bold flex items-center gap-0.5 transition-all cursor-pointer shadow-2xs ${
+                    table.status === "occupied"
+                      ? "bg-amber-50 hover:bg-amber-500 text-amber-700 hover:text-white border-amber-200 hover:border-amber-500"
+                      : "bg-orange-50 hover:bg-orange-500 text-orange-600 hover:text-white border-orange-200 hover:border-orange-500"
+                  }`}
                 >
-                  <QrCode className="w-3.5 h-3.5" />
-                  <span>Table QR</span>
+                  <Plus className="w-3 h-3" />
+                  <span>{table.status === "occupied" ? "Add" : "Order"}</span>
                 </button>
+
+                <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQrModal(table, "table")}
+                    className="p-0.5 rounded text-orange-600 hover:bg-orange-50 transition-colors cursor-pointer"
+                    title="Table QR"
+                  >
+                    <QrCode className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditItem(table, "table")}
+                    className="p-0.5 rounded text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+                    title="Edit Table"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTable(table.id)}
+                    className="p-0.5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                    title="Delete Table"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -533,6 +670,18 @@ export default function TableManager() {
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-medium mb-1">Initial Status</label>
+                    <select
+                      value={tableFormData.status || "available"}
+                      onChange={(e) => setTableFormData({ ...tableFormData, status: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800"
+                    >
+                      <option value="available">Available</option>
+                      <option value="occupied">Occupied</option>
+                    </select>
+                  </div>
                 </>
               )}
 
@@ -595,6 +744,26 @@ export default function TableManager() {
           </div>
         </div>
       )}
+
+      {/* Customer Details Popup Modal (Screenshot Design) */}
+      <CustomerDetailsModal
+        isOpen={customerDetailsPopupOpen}
+        onClose={() => setCustomerDetailsPopupOpen(false)}
+        targetItem={targetItemForPopup}
+        itemType={targetItemType}
+        onConfirm={handleCustomerDetailsConfirm}
+      />
+
+      {/* Live Table Menu Ordering POS Modal */}
+      <TableOrderMenuModal
+        isOpen={isMenuOrderModalOpen}
+        onClose={() => setIsMenuOrderModalOpen(false)}
+        table={selectedTableForOrder}
+        allTables={tables}
+        initialCustomerName={initialCustomerName}
+        initialCustomerPhone={initialCustomerPhone}
+        onOrderPlaced={() => fetchTables()}
+      />
     </div>
   );
 }

@@ -31,7 +31,14 @@ function MainApp() {
   const { isAuthenticated, role, loading } = useAuth();
   const tableMatch = window.location.pathname.match(/^\/table\/([^/]+)$/);
   const scannedQrToken = tableMatch ? decodeURIComponent(tableMatch[1]) : null;
-  const [activeTab, setActiveTab] = useState(role === "super_admin" ? "super_dashboard" : "settings");
+  const [activeTab, setActiveTabState] = useState(() => {
+    return localStorage.getItem("activeTab") || (role === "super_admin" ? "super_dashboard" : "dashboard");
+  });
+
+  const setActiveTab = (tab) => {
+    localStorage.setItem("activeTab", tab);
+    setActiveTabState(tab);
+  };
 
   // Selected Order for Modal Details
   const [selectedOrderForModal, setSelectedOrderForModal] = useState(null);
@@ -43,10 +50,19 @@ function MainApp() {
   const [pendingOrderCount, setPendingOrderCount] = useState(0);
   const [pendingKotCount, setPendingKotCount] = useState(0);
 
-  // Update default tab if role becomes ready
+  // Sync active tab with user role
   useEffect(() => {
-    if (role === "super_admin") setActiveTab("super_dashboard");
-    else setActiveTab("settings");
+    if (!role) return;
+    const storedTab = localStorage.getItem("activeTab");
+    if (role === "super_admin") {
+      if (!storedTab || !storedTab.startsWith("super_")) {
+        setActiveTab("super_dashboard");
+      }
+    } else {
+      if (!storedTab || storedTab.startsWith("super_")) {
+        setActiveTab("dashboard");
+      }
+    }
   }, [role]);
 
   // Confirmed orders are waiting for the kitchen. Keep the KOT badge live even
@@ -182,6 +198,7 @@ function MainApp() {
       <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
         {/* Restaurant Owner Views */}
         {activeTab === "dashboard" && <OwnerDashboard onNavigate={setActiveTab} />}
+        {activeTab === "hotel" && <TableManager initialMode="rooms" />}
         {activeTab === "orders" && (
           <OrderManager refreshKey={ordersRefreshKey} onSelectOrder={(order) => {
             setSelectedOrderForModal(order);
@@ -193,7 +210,7 @@ function MainApp() {
         {activeTab === "inventory" && <CategoryManager />}
         {activeTab === "categories" && <CategoryManager />}
         {activeTab === "tables" && (
-          <TableManager />
+          <TableManager initialMode="tables" />
         )}
         {activeTab === "reports" && <OwnerDashboard onNavigate={setActiveTab} />}
         {activeTab === "settings" && <RestaurantSettings />}

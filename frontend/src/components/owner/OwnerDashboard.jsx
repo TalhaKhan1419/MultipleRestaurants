@@ -66,15 +66,20 @@ export default function OwnerDashboard({ onNavigate }) {
       {/* Top Welcome & Refresh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Restaurant Overview</h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">Live performance and incoming orders</p>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+            <span>Restaurant Overview</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700 border border-emerald-300/80 animate-pulse">
+              LIVE POS
+            </span>
+          </h1>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">Live performance metrics and real-time incoming orders</p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={fetchStats}
-            className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100/90 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:shadow-xs hover:scale-[1.02]"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Refresh</span>
@@ -82,7 +87,7 @@ export default function OwnerDashboard({ onNavigate }) {
           <button
             type="button"
             onClick={() => onNavigate("orders")}
-            className="px-4 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-xs font-semibold text-white shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-xs font-semibold text-white shadow-md shadow-orange-500/20 flex items-center gap-1.5 transition-all cursor-pointer hover:scale-[1.02]"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
             <span>Open Order Manager</span>
@@ -91,26 +96,28 @@ export default function OwnerDashboard({ onNavigate }) {
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs">
-          {error}
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-medium shadow-xs flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
+          <span>{error}</span>
         </div>
       )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Today's Revenue */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs relative overflow-hidden">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Today's Revenue</span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Today's Revenue</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25 flex items-center justify-center transition-transform group-hover:scale-110">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-800 tracking-tight">
+            <div className="text-2xl font-black text-slate-800 tracking-tight">
               ₹{todayRevenue.toFixed(2)}
             </div>
-            <div className="flex items-center gap-1 mt-1 text-[11px] text-emerald-600 font-medium">
+            <div className="flex items-center gap-1 mt-1 text-[11px] text-emerald-600 font-semibold bg-emerald-50/80 px-2 py-0.5 rounded-md w-fit border border-emerald-200/60">
               <TrendingUp className="w-3 h-3" />
               <span>Paid: ₹{Number(stats?.today?.todayPaidRevenue || 0).toFixed(2)}</span>
             </div>
@@ -118,51 +125,63 @@ export default function OwnerDashboard({ onNavigate }) {
         </div>
 
         {/* Today's Orders */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs relative overflow-hidden">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-amber-400" />
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Today's Orders</span>
-            <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Today's Orders</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/25 flex items-center justify-center transition-transform group-hover:scale-110">
               <ShoppingBag className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-800 tracking-tight">{todayOrders}</div>
-            <div className="text-[11px] text-slate-500 mt-1 font-medium">
-              Total lifetime: {stats?.overall?.totalOrders || 0} orders
+            <div className="text-2xl font-black text-slate-800 tracking-tight">{todayOrders}</div>
+            <div className="text-[11px] text-slate-500 mt-1 font-medium bg-slate-50 px-2 py-0.5 rounded-md w-fit border border-slate-200/60">
+              Lifetime: <span className="font-semibold text-slate-700">{stats?.overall?.totalOrders || 0}</span>
             </div>
           </div>
         </div>
 
         {/* Occupied Tables */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs relative overflow-hidden">
+        <div
+          onClick={() => onNavigate && onNavigate("orders")}
+          className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all relative overflow-hidden group cursor-pointer"
+          title="Click to view Tables & Take Orders"
+        >
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-400" />
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Active Tables</span>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Active Tables</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 text-white shadow-md shadow-amber-500/25 flex items-center justify-center transition-transform group-hover:scale-110">
               <QrCode className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-800 tracking-tight">
+            <div className="text-2xl font-black text-slate-800 tracking-tight">
               {occupiedTables} <span className="text-sm font-normal text-slate-400">/ {totalTables}</span>
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 font-medium">
-              {stats?.tables?.availableTables || 0} tables available
+            <div className="flex items-center justify-between mt-1">
+              <div className="text-[11px] text-amber-700 font-semibold bg-amber-50/80 px-2 py-0.5 rounded-md w-fit border border-amber-200/60">
+                {stats?.tables?.availableTables || 0} tables available
+              </div>
+              <span className="text-[10px] font-bold text-orange-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                Manage &rarr;
+              </span>
             </div>
           </div>
         </div>
 
         {/* Menu Items */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs relative overflow-hidden">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 to-blue-500" />
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Menu Items</span>
-            <div className="w-9 h-9 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Menu Items</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-md shadow-cyan-500/25 flex items-center justify-center transition-transform group-hover:scale-110">
               <UtensilsCrossed className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-slate-800 tracking-tight">{totalMenuItems}</div>
-            <div className="text-[11px] text-slate-500 mt-1 font-medium">
-              Across {stats?.menu?.totalCategories || 0} categories
+            <div className="text-2xl font-black text-slate-800 tracking-tight">{totalMenuItems}</div>
+            <div className="text-[11px] text-cyan-700 mt-1 font-semibold bg-cyan-50/80 px-2 py-0.5 rounded-md w-fit border border-cyan-200/60">
+              {stats?.menu?.totalCategories || 0} categories active
             </div>
           </div>
         </div>
@@ -173,27 +192,28 @@ export default function OwnerDashboard({ onNavigate }) {
         {/* Left Column: Quick Status Breakdown & Actions */}
         <div className="space-y-6">
           {/* Order Status Cards */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-800 mb-4">Live Order Pipeline</h3>
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-slate-800">Live Order Pipeline</h3>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</span>
+            </div>
             <div className="space-y-2.5">
               {["pending", "confirmed", "cancelled"].map((st) => {
                 const count =
                   stats?.statusBreakdown?.find((s) => s.status === st)?.count || 0;
                 const colors = {
-                  pending: "bg-amber-50 text-amber-700 border-amber-200",
-                  confirmed: "bg-sky-50 text-sky-700 border-sky-200",
-                  preparing: "bg-blue-50 text-blue-700 border-blue-200",
-                  ready: "bg-emerald-50 text-emerald-700 border-emerald-200",
-                  completed: "bg-slate-100 text-slate-600 border-slate-200",
+                  pending: "bg-amber-100/80 text-amber-800 border-amber-300/80",
+                  confirmed: "bg-sky-100/80 text-sky-800 border-sky-300/80",
+                  cancelled: "bg-rose-100/80 text-rose-800 border-rose-300/80",
                 };
                 return (
                   <div
                     key={st}
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200"
+                    className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 hover:bg-slate-100/80 transition-all"
                   >
-                    <span className="text-xs capitalize font-semibold text-slate-700">{st}</span>
+                    <span className="text-xs capitalize font-bold text-slate-700">{st}</span>
                     <span
-                      className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${colors[st]}`}
+                      className={`text-xs font-black px-2.5 py-0.5 rounded-full border shadow-2xs ${colors[st] || "bg-slate-100 text-slate-700 border-slate-200"}`}
                     >
                       {count}
                     </span>
@@ -204,44 +224,51 @@ export default function OwnerDashboard({ onNavigate }) {
           </div>
 
           {/* Quick Shortcuts */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs">
             <h3 className="text-sm font-bold text-slate-800 mb-3">Quick Navigation</h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => onNavigate("menu")}
-                className="p-3 rounded-xl bg-slate-50 hover:bg-orange-50 border border-slate-200 hover:border-orange-200 text-left transition-all cursor-pointer group"
+                className="p-3.5 rounded-xl bg-gradient-to-br from-slate-50 to-orange-50/30 hover:from-orange-50 hover:to-amber-50 border border-slate-200/80 hover:border-orange-300 text-left transition-all cursor-pointer group shadow-2xs hover:shadow-xs"
               >
-                <UtensilsCrossed className="w-4 h-4 text-orange-500 mb-1.5 group-hover:scale-110 transition-transform" />
+                <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <UtensilsCrossed className="w-4 h-4" />
+                </div>
                 <div className="text-xs font-bold text-slate-800 group-hover:text-orange-600">Add Menu</div>
-                <div className="text-[10px] text-slate-500 font-medium">Add dishes & categories</div>
+                <div className="text-[10px] text-slate-500 font-medium mt-0.5">Dishes & items</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => onNavigate("tables")}
-                className="p-3 rounded-xl bg-slate-50 hover:bg-orange-50 border border-slate-200 hover:border-orange-200 text-left transition-all cursor-pointer group"
+                className="p-3.5 rounded-xl bg-gradient-to-br from-slate-50 to-emerald-50/30 hover:from-emerald-50 hover:to-teal-50 border border-slate-200/80 hover:border-emerald-300 text-left transition-all cursor-pointer group shadow-2xs hover:shadow-xs"
               >
-                <QrCode className="w-4 h-4 text-emerald-600 mb-1.5 group-hover:scale-110 transition-transform" />
-                <div className="text-xs font-bold text-slate-800 group-hover:text-orange-600">Room & QR</div>
-                <div className="text-[10px] text-slate-500 font-medium">Download QR</div>
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <div className="text-xs font-bold text-slate-800 group-hover:text-emerald-600">Room & QR</div>
+                <div className="text-[10px] text-slate-500 font-medium mt-0.5">Tables & QR codes</div>
               </button>
             </div>
           </div>
         </div>
 
         {/* Right Column: Live Recent Orders */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-800">Recent Orders Stream</h3>
-                <p className="text-[11px] text-slate-500 font-medium">Latest active orders from dining tables & guest rooms</p>
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <span>Recent Orders Stream</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium">Latest live orders from dining tables & guest rooms</p>
               </div>
               <button
                 type="button"
                 onClick={() => onNavigate("orders")}
-                className="text-xs text-orange-600 hover:text-orange-700 font-semibold inline-flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200/60 text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-all"
               >
                 <span>View All</span>
                 <ArrowUpRight className="w-3.5 h-3.5" />
@@ -249,25 +276,25 @@ export default function OwnerDashboard({ onNavigate }) {
             </div>
 
             {stats?.recentOrders?.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 text-xs font-medium">
-                No orders yet today. Open the customer view or create a manual order to start.
+              <div className="text-center py-12 text-slate-400 text-xs font-medium bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+                No orders placed yet today. Open the QR customer view to test!
               </div>
             ) : (
               <div className="space-y-3">
                 {stats?.recentOrders?.map((order) => {
                   const statusColors = {
-                    pending: "bg-amber-50 text-amber-700 border-amber-200",
-                    confirmed: "bg-sky-50 text-sky-700 border-sky-200",
-                    cancelled: "bg-rose-50 text-rose-700 border-rose-200",
+                    pending: "bg-amber-100/90 text-amber-800 border-amber-300/80",
+                    confirmed: "bg-sky-100/90 text-sky-800 border-sky-300/80",
+                    cancelled: "bg-rose-100/90 text-rose-800 border-rose-300/80",
                   };
 
                   return (
                     <div
                       key={order.id}
-                      className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      className="p-3.5 rounded-xl bg-slate-50/80 hover:bg-white border border-slate-200/80 hover:border-orange-200/80 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:shadow-xs"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-800 font-bold text-xs shrink-0 shadow-xs">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-700 text-white border border-slate-700 flex items-center justify-center font-extrabold text-xs shrink-0 shadow-xs">
                           {order.tableNumber ? `T-${order.tableNumber}` : "TA"}
                         </div>
                         <div>
@@ -276,7 +303,7 @@ export default function OwnerDashboard({ onNavigate }) {
                               {order.orderNumber}
                             </span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize ${
+                              className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border capitalize ${
                                 statusColors[order.status] || "bg-slate-100 text-slate-700"
                               }`}
                             >
@@ -291,11 +318,11 @@ export default function OwnerDashboard({ onNavigate }) {
 
                       <div className="flex items-center justify-between sm:justify-end gap-3 pl-13 sm:pl-0">
                         <div className="text-right">
-                          <div className="text-xs font-bold text-slate-800">
+                          <div className="text-xs font-black text-slate-800">
                             ₹{Number(order.totalAmount).toFixed(2)}
                           </div>
                           <span
-                            className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                            className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
                               order.paymentStatus === "paid"
                                 ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
                                 : "text-amber-700 bg-amber-50 border border-amber-200"
@@ -310,7 +337,7 @@ export default function OwnerDashboard({ onNavigate }) {
                           <button
                             type="button"
                             onClick={() => handleUpdateOrderStatus(order.id, "confirmed")}
-                            className="px-2.5 py-1 rounded-lg bg-orange-500 hover:bg-orange-600 text-[11px] font-semibold text-white transition-colors cursor-pointer shadow-xs"
+                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-[11px] font-bold text-white transition-all cursor-pointer shadow-xs hover:scale-105"
                           >
                             Confirm
                           </button>

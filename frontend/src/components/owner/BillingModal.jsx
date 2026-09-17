@@ -26,7 +26,7 @@ export default function BillingModal({ order, isOpen, onClose, onPaymentComplete
   if (!isOpen || !order) return null;
 
   const isPaid = order.paymentStatus === "paid";
-  const canSettle = ["ready", "completed"].includes(order.kitchenStatus);
+  const canSettle = !isPaid;
 
   const handlePayment = async () => {
     setSubmitting(true);

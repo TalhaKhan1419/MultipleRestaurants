@@ -17,6 +17,7 @@ export default function Sidebar({ activeTab, onTabChange }) {
 
   const ownerNavItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "hotel", label: "Hotel & Rooms", icon: Building2 },
     { id: "orders", label: "Live Orders", icon: ShoppingBag, badge: "Live" },
     { id: "menu", label: "Menu Items", icon: UtensilsCrossed },
     { id: "categories", label: "Categories", icon: Layers },

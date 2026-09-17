@@ -49,13 +49,13 @@ async function findAll(restaurantId, filters = {}) {
   const [items] = await db.query(
     `SELECT oi.id, oi.order_id AS orderId, oi.menu_item_id AS menuItemId,
             oi.item_name AS itemName, oi.unit_price AS unitPrice,
-            oi.quantity, oi.line_total AS lineTotal,
+            oi.quantity, oi.line_total AS lineTotal, oi.notes AS notes,
             GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') AS categoryNames
      FROM order_items oi
      LEFT JOIN menu_item_categories mic ON mic.restaurant_id = oi.restaurant_id AND mic.menu_item_id = oi.menu_item_id
      LEFT JOIN categories c ON c.id = mic.category_id AND c.restaurant_id = oi.restaurant_id
      WHERE oi.order_id IN (${placeholders})
-     GROUP BY oi.id, oi.order_id, oi.menu_item_id, oi.item_name, oi.unit_price, oi.quantity, oi.line_total
+     GROUP BY oi.id, oi.order_id, oi.menu_item_id, oi.item_name, oi.unit_price, oi.quantity, oi.line_total, oi.notes
      ORDER BY oi.id ASC`,
     orderIds
   );
@@ -67,10 +67,22 @@ async function findAll(restaurantId, filters = {}) {
     itemsByOrder.set(item.orderId, list);
   }
 
-  return orders.map((order) => ({
-    ...order,
-    items: itemsByOrder.get(order.id) || [],
-  }));
+  return orders.map((order) => {
+    let cleanPhone = order.customerPhone || "";
+    if (cleanPhone.startsWith("0000000000")) {
+      cleanPhone = "0000000000";
+    }
+    let cleanName = order.customerName || "";
+    if (!cleanName || cleanName.toLowerCase() === "walk-in guest" || cleanName.toLowerCase().startsWith("table ")) {
+      cleanName = "Guest";
+    }
+    return {
+      ...order,
+      customerName: cleanName,
+      customerPhone: cleanPhone,
+      items: itemsByOrder.get(order.id) || [],
+    };
+  });
 }
 
 async function findById(restaurantId, id) {
@@ -97,30 +109,71 @@ async function findById(restaurantId, id) {
   const [items] = await db.query(
     `SELECT oi.id, oi.order_id AS orderId, oi.menu_item_id AS menuItemId,
             oi.item_name AS itemName, oi.unit_price AS unitPrice,
-            oi.quantity, oi.line_total AS lineTotal,
+            oi.quantity, oi.line_total AS lineTotal, oi.notes AS notes,
             GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') AS categoryNames
      FROM order_items oi
      LEFT JOIN menu_item_categories mic ON mic.restaurant_id = oi.restaurant_id AND mic.menu_item_id = oi.menu_item_id
      LEFT JOIN categories c ON c.id = mic.category_id AND c.restaurant_id = oi.restaurant_id
      WHERE oi.order_id = ?
-     GROUP BY oi.id, oi.order_id, oi.menu_item_id, oi.item_name, oi.unit_price, oi.quantity, oi.line_total
+     GROUP BY oi.id, oi.order_id, oi.menu_item_id, oi.item_name, oi.unit_price, oi.quantity, oi.line_total, oi.notes
      ORDER BY oi.id ASC`,
     [id]
   );
 
-  return { ...order, items };
+  let cleanPhone = order.customerPhone || "";
+  if (cleanPhone.startsWith("0000000000")) {
+    cleanPhone = "0000000000";
+  }
+  let cleanName = order.customerName || "";
+  if (!cleanName || cleanName.toLowerCase() === "walk-in guest" || cleanName.toLowerCase().startsWith("table ")) {
+    cleanName = "Guest";
+  }
+
+  return {
+    ...order,
+    customerName: cleanName,
+    customerPhone: cleanPhone,
+    items,
+  };
 }
 
 async function findOrCreateUser(connection, restaurantId, fullName, phone) {
+  const cleanPhone = phone ? phone.trim() : "";
+  const rawName = fullName ? fullName.trim() : "";
+  const isGuest = !rawName || ["guest", "walk-in guest", "walk-in"].includes(rawName.toLowerCase());
+  const finalName = isGuest ? "Guest" : rawName;
+
+  const isDummyPhone =
+    !cleanPhone ||
+    ["0000000000", "9999999999", "1234567890", "0"].includes(cleanPhone) ||
+    /^(.)\1+$/.test(cleanPhone);
+
+  if (isDummyPhone) {
+    const uniquePhone = `0000000000-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+    const [result] = await connection.query(
+      "INSERT INTO users (restaurant_id, full_name, phone) VALUES (?, ?, ?)",
+      [restaurantId, finalName, uniquePhone]
+    );
+    return result.insertId;
+  }
+
   const [existing] = await connection.query(
-    "SELECT id FROM users WHERE restaurant_id = ? AND phone = ?",
-    [restaurantId, phone]
+    "SELECT id, full_name FROM users WHERE restaurant_id = ? AND phone = ?",
+    [restaurantId, cleanPhone]
   );
-  if (existing.length) return existing[0].id;
+  if (existing.length) {
+    if (!isGuest && existing[0].full_name !== finalName) {
+      await connection.query(
+        "UPDATE users SET full_name = ? WHERE id = ?",
+        [finalName, existing[0].id]
+      );
+    }
+    return existing[0].id;
+  }
 
   const [result] = await connection.query(
     "INSERT INTO users (restaurant_id, full_name, phone) VALUES (?, ?, ?)",
-    [restaurantId, fullName, phone]
+    [restaurantId, finalName, cleanPhone]
   );
   return result.insertId;
 }
@@ -157,6 +210,7 @@ async function createOrder(restaurantId, { tableId, customerName, customerPhone,
         unitPrice,
         quantity: item.quantity,
         lineTotal,
+        notes: item.notes || null,
       });
     }
 
@@ -184,8 +238,8 @@ async function createOrder(restaurantId, { tableId, customerName, customerPhone,
     }
 
     const [orderResult] = await connection.query(
-      `INSERT INTO orders (restaurant_id, table_id, user_id, order_number, status, order_type, subtotal, discount_amount, tax_amount, total_amount, payment_status, payment_method, notes)
-       VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, 'unpaid', ?, ?)`,
+      `INSERT INTO orders (restaurant_id, table_id, user_id, order_number, status, kitchen_status, order_type, subtotal, discount_amount, tax_amount, total_amount, payment_status, payment_method, notes)
+       VALUES (?, ?, ?, ?, 'confirmed', 'confirmed', ?, ?, ?, ?, ?, 'unpaid', ?, ?)`,
       [restaurantId, tableId || null, userId, orderNumber, orderType, subtotal, discount, taxAmount, totalAmount, paymentMethod, notes || null]
     );
 
@@ -193,9 +247,9 @@ async function createOrder(restaurantId, { tableId, customerName, customerPhone,
 
     for (const oi of orderItemsToInsert) {
       await connection.query(
-        `INSERT INTO order_items (order_id, restaurant_id, menu_item_id, item_name, unit_price, quantity, line_total)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [orderId, restaurantId, oi.menuItemId, oi.itemName, oi.unitPrice, oi.quantity, oi.lineTotal]
+        `INSERT INTO order_items (order_id, restaurant_id, menu_item_id, item_name, unit_price, quantity, line_total, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [orderId, restaurantId, oi.menuItemId, oi.itemName, oi.unitPrice, oi.quantity, oi.lineTotal, oi.notes]
       );
     }
 
@@ -217,17 +271,50 @@ async function createOrder(restaurantId, { tableId, customerName, customerPhone,
 }
 
 async function updateStatus(restaurantId, id, status) {
-  const [result] = await db.query(
-    `UPDATE orders
-     SET status = ?, kitchen_status = CASE
-       WHEN ? = 'confirmed' THEN 'confirmed'
-       WHEN ? = 'cancelled' THEN 'cancelled'
-       ELSE kitchen_status
-     END
-     WHERE id = ? AND restaurant_id = ?`,
-    [status, status, status, id, restaurantId]
-  );
-  return result.affectedRows > 0;
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [orders] = await connection.query(
+      "SELECT table_id AS tableId FROM orders WHERE id = ? AND restaurant_id = ? FOR UPDATE",
+      [id, restaurantId]
+    );
+    if (!orders.length) {
+      await connection.rollback();
+      return false;
+    }
+
+    await connection.query(
+      `UPDATE orders
+       SET status = ?, kitchen_status = CASE
+         WHEN ? = 'confirmed' THEN 'confirmed'
+         WHEN ? = 'cancelled' THEN 'cancelled'
+         ELSE kitchen_status
+       END
+       WHERE id = ? AND restaurant_id = ?`,
+      [status, status, status, id, restaurantId]
+    );
+
+    const tableId = orders[0].tableId;
+    if (tableId && (status === "completed" || status === "cancelled")) {
+      const [remainingActive] = await connection.query(
+        "SELECT COUNT(*) AS count FROM orders WHERE table_id = ? AND restaurant_id = ? AND status NOT IN ('cancelled', 'completed') AND (payment_status IS NULL OR payment_status <> 'paid')",
+        [tableId, restaurantId]
+      );
+      if (remainingActive[0].count === 0) {
+        await connection.query(
+          "UPDATE restaurant_tables SET status = 'available' WHERE id = ? AND restaurant_id = ?",
+          [tableId, restaurantId]
+        );
+      }
+    }
+    await connection.commit();
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 async function updateKitchenStatus(restaurantId, id, status) {
@@ -273,7 +360,7 @@ async function updatePaymentStatus(restaurantId, id, paymentStatus, paymentMetho
     const tableId = orders[0].tableId;
     if (paymentStatus === "paid" && tableId) {
       const [remainingUnpaid] = await connection.query(
-        "SELECT COUNT(*) AS count FROM orders WHERE table_id = ? AND restaurant_id = ? AND payment_status = 'unpaid' AND status <> 'cancelled'",
+        "SELECT COUNT(*) AS count FROM orders WHERE table_id = ? AND restaurant_id = ? AND status NOT IN ('cancelled', 'completed') AND (payment_status IS NULL OR payment_status <> 'paid')",
         [tableId, restaurantId]
       );
       if (remainingUnpaid[0].count === 0) {

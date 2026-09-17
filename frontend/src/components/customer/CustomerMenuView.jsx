@@ -147,16 +147,12 @@ export default function CustomerMenuView({ qrToken, onClose }) {
     e.preventDefault();
     if (totalCartCount === 0) return;
 
-    // Mandatory field validation
-    const errors = {};
-    if (!customerName.trim()) errors.name = "Naam zaroor bharo";
-    if (!customerPhone.trim()) errors.phone = "Phone number zaroor bharo";
-    else if (!/^\d{7,15}$/.test(customerPhone.trim())) errors.phone = "Valid phone number bharo";
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
+    const trimmedPhone = customerPhone.trim();
+    if (trimmedPhone && !/^\d{7,15}$/.test(trimmedPhone)) {
+      alert("Kripya valid phone number enter karein (7 to 15 digits)");
       return;
     }
-    setFieldErrors({});
+
     setOrderSubmitting(true);
 
     try {
@@ -166,8 +162,8 @@ export default function CustomerMenuView({ qrToken, onClose }) {
       const payload = {
         qrToken: tokenToSend,
         tableId: selectedTable?.tableId || null,
-        customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
+        customerName: customerName.trim() || "Guest",
+        customerPhone: trimmedPhone || "0000000000",
         orderType: isTakeaway ? "takeaway" : "dine_in",
         notes: orderNotes.trim(),
         items: Object.values(cart).map(({ item, quantity }) => ({
@@ -376,6 +372,32 @@ export default function CustomerMenuView({ qrToken, onClose }) {
       })
       .filter((cat) => cat.items.length > 0 || searchTerm === "");
   }, [categoriesList, searchTerm, vegOnlyFilter]);
+
+  const allItemsList = useMemo(() => {
+    const itemMap = new Map();
+    (categoriesList || []).forEach((cat) => {
+      (cat.items || []).forEach((item) => {
+        if (!itemMap.has(item.id)) {
+          itemMap.set(item.id, {
+            ...item,
+            categoryName: cat.name,
+          });
+        }
+      });
+    });
+    return Array.from(itemMap.values());
+  }, [categoriesList]);
+
+  const filteredAllItems = useMemo(() => {
+    return allItemsList.filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      const isVeg = isDishVeg(item);
+      const matchesVeg = vegOnlyFilter ? isVeg : true;
+      return matchesSearch && matchesVeg;
+    });
+  }, [allItemsList, searchTerm, vegOnlyFilter]);
 
   const displayedDishes = useMemo(() => {
     if (activeCategoryId === "all") {
@@ -595,154 +617,280 @@ export default function CustomerMenuView({ qrToken, onClose }) {
 
           {/* Dishes Feed ("or jaha menu dikh h wo") */}
           <main className="w-full px-4 sm:px-6 py-5 flex-1 pb-32 space-y-8">
-            {displayedDishes.length === 0 || displayedDishes.every((c) => c.items.length === 0) ? (
-              <div className="py-20 text-center text-[#7c5e48] text-sm bg-white rounded-3xl border border-orange-200 p-8 shadow-xs">
-                <UtensilsCrossed className="w-10 h-10 mx-auto text-orange-400 mb-2 opacity-60" />
-                <p className="font-bold text-[#3b2618]">No dishes found matching your search</p>
-                <p className="text-xs text-[#a88d7b] mt-1">Try searching for something else or clear filters</p>
-              </div>
-            ) : (
-              displayedDishes.map((cat) => {
-                if (!cat.items || cat.items.length === 0) return null;
-                return (
-                  <section key={cat.id} className="space-y-3.5">
-                    {/* Category Header */}
-                    <div className="flex items-center justify-between border-b border-orange-200/80 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{getCategoryIcon(cat.name)}</span>
-                        <div>
-                          <h2 className="text-base sm:text-lg font-black text-[#3b2618]">
-                            {cat.name}
-                          </h2>
-                          {cat.description && (
-                            <p className="text-xs text-[#7c5e48] mt-0.5">{cat.description}</p>
-                          )}
+            {activeCategoryId === "all" ? (
+              filteredAllItems.length === 0 ? (
+                <div className="py-20 text-center text-[#7c5e48] text-sm bg-white rounded-3xl border border-orange-200 p-8 shadow-xs">
+                  <UtensilsCrossed className="w-10 h-10 mx-auto text-orange-400 mb-2 opacity-60" />
+                  <p className="font-bold text-[#3b2618]">No dishes found matching your search</p>
+                  <p className="text-xs text-[#a88d7b] mt-1">Try searching for something else or clear filters</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  {filteredAllItems.map((item) => {
+                    const inCart = cart[item.id];
+                    const isVeg = isDishVeg(item);
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-100 hover:border-orange-200 transition-all group shadow-sm hover:shadow-md relative overflow-hidden"
+                      >
+                        <div className="flex flex-col gap-2.5">
+                          {/* Left Details */}
+                          <div className="w-full min-w-0 order-2">
+                            {/* Dietary Icon */}
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              {isVeg ? (
+                                <span
+                                  title="Pure Vegetarian"
+                                  className="w-4 h-4 rounded-[4px] border border-emerald-600 flex items-center justify-center p-[2px] bg-emerald-50"
+                                >
+                                  <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                                </span>
+                              ) : (
+                                <span
+                                  title="Non-Vegetarian"
+                                  className="w-4 h-4 rounded-[4px] border border-rose-600 flex items-center justify-center p-[1px] bg-rose-50"
+                                >
+                                  <span className="w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[7px] border-b-rose-600" />
+                                </span>
+                              )}
+                              <span
+                                className={`text-[10px] font-extrabold uppercase tracking-wider ${
+                                  isVeg ? "text-emerald-700" : "text-rose-700"
+                                }`}
+                              >
+                                {isVeg ? "Veg" : "Non-Veg"}
+                              </span>
+                            </div>
+
+                            <h3 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-orange-600 transition-colors leading-snug line-clamp-2 min-h-9">
+                              {item.name}
+                            </h3>
+
+                            <div className="text-sm sm:text-base font-black text-orange-600 mt-1">
+                              ₹{Number(item.price).toFixed(2)}
+                            </div>
+
+                            <p className="hidden">
+                              {item.description ||
+                                "Freshly cooked to order with authentic culinary recipes & premium ingredients."}
+                            </p>
+                          </div>
+
+                          {/* Right Image & ADD Button */}
+                          <div className="contents">
+                            <div
+                              onClick={() => setPreviewDish(item)}
+                              title="Click to view full photo & details"
+                              className="w-full order-1 aspect-[1.35] rounded-xl bg-orange-50/70 border border-orange-100 flex items-center justify-center shadow-xs overflow-hidden relative cursor-pointer group/img"
+                            >
+                              {item.imageUrl ? (
+                                <img
+                                  src={getCleanImageUrl(item.imageUrl, 600)}
+                                  alt={item.name}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110"
+                                />
+                              ) : (
+                                <span className="text-4xl">{getCategoryIcon(item.categoryName)}</span>
+                              )}
+                              {/* Hover Zoom pill */}
+                              <div className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-black/60 backdrop-blur-md text-white opacity-0 group-hover/img:opacity-100 transition-opacity">
+                                <Maximize2 className="w-3 h-3" />
+                              </div>
+                            </div>
+
+                            {/* Overlapping '+ ADD' / Stepper */}
+                            <div className="order-3 mt-1 z-10 w-full shadow-none">
+                              {inCart ? (
+                                <div className="h-8 rounded-xl bg-orange-500 border border-orange-400 flex items-center justify-between px-1.5 shadow-md shadow-orange-500/30 text-white">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeFromCart(item.id)}
+                                    className="w-6 h-6 rounded-lg hover:bg-orange-600 text-white flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                  <span className="text-xs font-black text-white">
+                                    {inCart.quantity}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => addToCart(item)}
+                                    className="w-6 h-6 rounded-lg hover:bg-orange-600 text-white flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => addToCart(item)}
+                                  className="w-full h-8 rounded-xl bg-white hover:bg-orange-500 text-orange-600 hover:text-white border-2 border-orange-500 text-xs font-black flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 cursor-pointer uppercase tracking-wider backdrop-blur-md"
+                                >
+                                  <span>+ ADD</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <span className="text-xs font-bold text-[#a88d7b] bg-orange-100/60 px-2.5 py-1 rounded-full border border-orange-200/60">
-                        {cat.items.length} dishes
-                      </span>
-                    </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
+              displayedDishes.length === 0 || displayedDishes.every((c) => c.items.length === 0) ? (
+                <div className="py-20 text-center text-[#7c5e48] text-sm bg-white rounded-3xl border border-orange-200 p-8 shadow-xs">
+                  <UtensilsCrossed className="w-10 h-10 mx-auto text-orange-400 mb-2 opacity-60" />
+                  <p className="font-bold text-[#3b2618]">No dishes found matching your search</p>
+                  <p className="text-xs text-[#a88d7b] mt-1">Try searching for something else or clear filters</p>
+                </div>
+              ) : (
+                displayedDishes.map((cat) => {
+                  if (!cat.items || cat.items.length === 0) return null;
+                  return (
+                    <section key={cat.id} className="space-y-3.5">
+                      {/* Category Header */}
+                      <div className="flex items-center justify-between border-b border-orange-200/80 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{getCategoryIcon(cat.name)}</span>
+                          <div>
+                            <h2 className="text-base sm:text-lg font-black text-[#3b2618]">
+                              {cat.name}
+                            </h2>
+                            {cat.description && (
+                              <p className="text-xs text-[#7c5e48] mt-0.5">{cat.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold text-[#a88d7b] bg-orange-100/60 px-2.5 py-1 rounded-full border border-orange-200/60">
+                          {cat.items.length} dishes
+                        </span>
+                      </div>
 
-                    {/* Dishes Cards Grid */}
-                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                      {cat.items.map((item) => {
-                        const inCart = cart[item.id];
-                        const isVeg = isDishVeg(item);
+                      {/* Dishes Cards Grid */}
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                        {cat.items.map((item) => {
+                          const inCart = cart[item.id];
+                          const isVeg = isDishVeg(item);
 
-                        return (
-                          <div
-                            key={item.id}
-                            className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-100 hover:border-orange-200 transition-all group shadow-sm hover:shadow-md relative overflow-hidden"
-                          >
-                            <div className="flex flex-col gap-2.5">
-                              {/* Left Details */}
-                              <div className="w-full min-w-0 order-2">
-                                {/* Dietary Icon */}
-                                <div className="flex items-center gap-1.5 mb-1.5">
-                                  {isVeg ? (
-                                    <span
-                                      title="Pure Vegetarian"
-                                      className="w-4 h-4 rounded-[4px] border border-emerald-600 flex items-center justify-center p-[2px] bg-emerald-50"
-                                    >
-                                      <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                                    </span>
-                                  ) : (
-                                    <span
-                                      title="Non-Vegetarian"
-                                      className="w-4 h-4 rounded-[4px] border border-rose-600 flex items-center justify-center p-[1px] bg-rose-50"
-                                    >
-                                      <span className="w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[7px] border-b-rose-600" />
-                                    </span>
-                                  )}
-                                  <span
-                                    className={`text-[10px] font-extrabold uppercase tracking-wider ${
-                                      isVeg ? "text-emerald-700" : "text-rose-700"
-                                    }`}
-                                  >
-                                    {isVeg ? "Veg" : "Non-Veg"}
-                                  </span>
-                                </div>
-
-                                <h3 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-orange-600 transition-colors leading-snug line-clamp-2 min-h-9">
-                                  {item.name}
-                                </h3>
-
-                                <div className="text-sm sm:text-base font-black text-orange-600 mt-1">
-                                  ₹{Number(item.price).toFixed(2)}
-                                </div>
-
-                                <p className="hidden">
-                                  {item.description ||
-                                    "Freshly cooked to order with authentic culinary recipes & premium ingredients."}
-                                </p>
-                              </div>
-
-                              {/* Right Image & ADD Button */}
-                              <div className="contents">
-                                <div
-                                  onClick={() => setPreviewDish(item)}
-                                  title="Click to view full photo & details"
-                                  className="w-full order-1 aspect-[1.35] rounded-xl bg-orange-50/70 border border-orange-100 flex items-center justify-center shadow-xs overflow-hidden relative cursor-pointer group/img"
-                                >
-                                  {item.imageUrl ? (
-                                    <img
-                                      src={getCleanImageUrl(item.imageUrl, 600)}
-                                      alt={item.name}
-                                      loading="lazy"
-                                      decoding="async"
-                                      className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110"
-                                    />
-                                  ) : (
-                                    <span className="text-4xl">{getCategoryIcon(cat.name)}</span>
-                                  )}
-                                  {/* Hover Zoom pill */}
-                                  <div className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-black/60 backdrop-blur-md text-white opacity-0 group-hover/img:opacity-100 transition-opacity">
-                                    <Maximize2 className="w-3 h-3" />
-                                  </div>
-                                </div>
-
-                                {/* Overlapping '+ ADD' / Stepper */}
-                                <div className="order-3 mt-1 z-10 w-full shadow-none">
-                                  {inCart ? (
-                                    <div className="h-8 rounded-xl bg-orange-500 border border-orange-400 flex items-center justify-between px-1.5 shadow-md shadow-orange-500/30 text-white">
-                                      <button
-                                        type="button"
-                                        onClick={() => removeFromCart(item.id)}
-                                        className="w-6 h-6 rounded-lg hover:bg-orange-600 text-white flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                          return (
+                            <div
+                              key={item.id}
+                              className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-100 hover:border-orange-200 transition-all group shadow-sm hover:shadow-md relative overflow-hidden"
+                            >
+                              <div className="flex flex-col gap-2.5">
+                                {/* Left Details */}
+                                <div className="w-full min-w-0 order-2">
+                                  {/* Dietary Icon */}
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    {isVeg ? (
+                                      <span
+                                        title="Pure Vegetarian"
+                                        className="w-4 h-4 rounded-[4px] border border-emerald-600 flex items-center justify-center p-[2px] bg-emerald-50"
                                       >
-                                        <Minus className="w-3 h-3" />
-                                      </button>
-                                      <span className="text-xs font-black text-white">
-                                        {inCart.quantity}
+                                        <span className="w-2 h-2 rounded-full bg-emerald-600" />
                                       </span>
+                                    ) : (
+                                      <span
+                                        title="Non-Vegetarian"
+                                        className="w-4 h-4 rounded-[4px] border border-rose-600 flex items-center justify-center p-[1px] bg-rose-50"
+                                      >
+                                        <span className="w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[7px] border-b-rose-600" />
+                                      </span>
+                                    )}
+                                    <span
+                                      className={`text-[10px] font-extrabold uppercase tracking-wider ${
+                                        isVeg ? "text-emerald-700" : "text-rose-700"
+                                      }`}
+                                    >
+                                      {isVeg ? "Veg" : "Non-Veg"}
+                                    </span>
+                                  </div>
+
+                                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-orange-600 transition-colors leading-snug line-clamp-2 min-h-9">
+                                    {item.name}
+                                  </h3>
+
+                                  <div className="text-sm sm:text-base font-black text-orange-600 mt-1">
+                                    ₹{Number(item.price).toFixed(2)}
+                                  </div>
+
+                                  <p className="hidden">
+                                    {item.description ||
+                                      "Freshly cooked to order with authentic culinary recipes & premium ingredients."}
+                                  </p>
+                                </div>
+
+                                {/* Right Image & ADD Button */}
+                                <div className="contents">
+                                  <div
+                                    onClick={() => setPreviewDish(item)}
+                                    title="Click to view full photo & details"
+                                    className="w-full order-1 aspect-[1.35] rounded-xl bg-orange-50/70 border border-orange-100 flex items-center justify-center shadow-xs overflow-hidden relative cursor-pointer group/img"
+                                  >
+                                    {item.imageUrl ? (
+                                      <img
+                                        src={getCleanImageUrl(item.imageUrl, 600)}
+                                        alt={item.name}
+                                        loading="lazy"
+                                        decoding="async"
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110"
+                                      />
+                                    ) : (
+                                      <span className="text-4xl">{getCategoryIcon(cat.name)}</span>
+                                    )}
+                                    {/* Hover Zoom pill */}
+                                    <div className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-black/60 backdrop-blur-md text-white opacity-0 group-hover/img:opacity-100 transition-opacity">
+                                      <Maximize2 className="w-3 h-3" />
+                                    </div>
+                                  </div>
+
+                                  {/* Overlapping '+ ADD' / Stepper */}
+                                  <div className="order-3 mt-1 z-10 w-full shadow-none">
+                                    {inCart ? (
+                                      <div className="h-8 rounded-xl bg-orange-500 border border-orange-400 flex items-center justify-between px-1.5 shadow-md shadow-orange-500/30 text-white">
+                                        <button
+                                          type="button"
+                                          onClick={() => removeFromCart(item.id)}
+                                          className="w-6 h-6 rounded-lg hover:bg-orange-600 text-white flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                                        >
+                                          <Minus className="w-3 h-3" />
+                                        </button>
+                                        <span className="text-xs font-black text-white">
+                                          {inCart.quantity}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => addToCart(item)}
+                                          className="w-6 h-6 rounded-lg hover:bg-orange-600 text-white flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                                        >
+                                          <Plus className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
                                       <button
                                         type="button"
                                         onClick={() => addToCart(item)}
-                                        className="w-6 h-6 rounded-lg hover:bg-orange-600 text-white flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                                        className="w-full h-8 rounded-xl bg-white hover:bg-orange-500 text-orange-600 hover:text-white border-2 border-orange-500 text-xs font-black flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 cursor-pointer uppercase tracking-wider backdrop-blur-md"
                                       >
-                                        <Plus className="w-3 h-3" />
+                                        <span>+ ADD</span>
                                       </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => addToCart(item)}
-                                      className="w-full h-8 rounded-xl bg-white hover:bg-orange-500 text-orange-600 hover:text-white border-2 border-orange-500 text-xs font-black flex items-center justify-center gap-1 shadow-xs transition-all active:scale-95 cursor-pointer uppercase tracking-wider backdrop-blur-md"
-                                    >
-                                      <span>+ ADD</span>
-                                    </button>
-                                  )}
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                );
-              })
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })
+              )
             )}
           </main>
 
@@ -1016,19 +1164,55 @@ export default function CustomerMenuView({ qrToken, onClose }) {
                 </div>
               ) : (
                 <>
+                  {/* Diner Details & Cooking Note (Visible at Top) */}
+                  <div className="space-y-2 pb-2 border-b border-orange-100">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="relative">
+                        <User className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#a88d7b]" />
+                        <input
+                          type="text"
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="Guest Name (Optional)"
+                          className="w-full bg-white border border-orange-200/90 rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#3b2618] placeholder-[#a88d7b] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-xs"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#a88d7b]" />
+                        <input
+                          type="text"
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          placeholder="Mobile # (Optional)"
+                          className="w-full bg-white border border-orange-200/90 rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#3b2618] placeholder-[#a88d7b] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <MessageSquare className="w-3.5 h-3.5 absolute left-3 top-2 text-[#a88d7b]" />
+                      <input
+                        type="text"
+                        value={orderNotes}
+                        onChange={(e) => setOrderNotes(e.target.value)}
+                        placeholder="Cooking Note (e.g., Mild spicy, extra tissues) (Optional)"
+                        className="w-full bg-white border border-orange-200/90 rounded-xl pl-8 pr-3 py-1.5 text-xs text-[#3b2618] placeholder-[#a88d7b] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-xs"
+                      />
+                    </div>
+                  </div>
+
                   {/* Dish Rows */}
-                  <div className="space-y-3">
+                  <div className="space-y-2 pt-2">
                     {Object.values(cart).map(({ item, quantity }) => {
                       const isVeg = isDishVeg(item);
                       const itemTotal = Number(item.price) * quantity;
                       return (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-white border border-orange-200/80 shadow-xs"
+                          className="flex items-center justify-between gap-3 p-2 rounded-2xl bg-white border border-orange-200/80 shadow-xs"
                         >
                           {/* Thumbnail Image + Veg Dot */}
                           <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                            <div className="w-12 h-12 rounded-xl bg-orange-50 border border-orange-200 overflow-hidden shrink-0 flex items-center justify-center text-lg relative shadow-xs">
+                            <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-200 overflow-hidden shrink-0 flex items-center justify-center text-base relative shadow-xs">
                               {item.imageUrl ? (
                                 <img
                                   src={getCleanImageUrl(item.imageUrl, 200)}
@@ -1083,62 +1267,6 @@ export default function CustomerMenuView({ qrToken, onClose }) {
                         </div>
                       );
                     })}
-                  </div>
-
-                  {/* Quick Cooking Request Chips */}
-                  <div className="pt-3 space-y-2">
-                    <label className="text-[11px] font-bold text-[#3b2618] flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Special Instructions for Chef:</span>
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {quickRequestChips.map((chip) => (
-                        <button
-                          key={chip}
-                          type="button"
-                          onClick={() => handleAddNoteChip(chip)}
-                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white hover:bg-orange-50 text-[#7c5e48] border border-orange-200 transition-all cursor-pointer active:scale-95 shadow-xs"
-                        >
-                          {chip}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Diner Details & Notes */}
-                  <div className="pt-3 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="relative">
-                        <User className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#a88d7b]" />
-                        <input
-                          type="text"
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          placeholder="Guest Name (Optional)"
-                          className="w-full bg-white border border-orange-200/90 rounded-xl pl-8 pr-3 py-2 text-xs text-[#3b2618] placeholder-[#a88d7b] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-xs"
-                        />
-                      </div>
-                      <div className="relative">
-                        <Phone className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#a88d7b]" />
-                        <input
-                          type="text"
-                          value={customerPhone}
-                          onChange={(e) => setCustomerPhone(e.target.value)}
-                          placeholder="Mobile # (Optional)"
-                          className="w-full bg-white border border-orange-200/90 rounded-xl pl-8 pr-3 py-2 text-xs text-[#3b2618] placeholder-[#a88d7b] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-xs"
-                        />
-                      </div>
-                    </div>
-                    <div className="relative">
-                      <MessageSquare className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#a88d7b]" />
-                      <input
-                        type="text"
-                        value={orderNotes}
-                        onChange={(e) => setOrderNotes(e.target.value)}
-                        placeholder="E.g., Make it mild, extra tissues, allergies..."
-                        className="w-full bg-white border border-orange-200/90 rounded-xl pl-8 pr-3 py-2 text-xs text-[#3b2618] placeholder-[#a88d7b] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-xs"
-                      />
-                    </div>
                   </div>
                 </>
               )}

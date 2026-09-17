@@ -2,8 +2,8 @@ INSERT INTO restaurants (id, name, slug, phone, email, address)
 VALUES (1, 'Demo Restaurant', 'demo-restaurant', '+971500000000', 'hello@demorestaurant.local', 'Dubai, UAE');
 
 INSERT INTO admins (id, restaurant_id, full_name, phone, email, password_hash, role) VALUES
-  (1, NULL, 'Super Admin', '+971500000001', 'superadmin@restaurant.local', '$2b$12$tKDv0y7rKwAIplKZHPS/TuQ0OjfZoPzpQFP7Onz16sd9sKFhsWY3C', 'super_admin'),
-  (2, 1, 'Demo Restaurant Admin', '+971500000002', 'owner@demorestaurant.local', '$2b$12$tKDv0y7rKwAIplKZHPS/TuQ0OjfZoPzpQFP7Onz16sd9sKFhsWY3C', 'admin');
+  (1, NULL, 'Super Admin', '+971500000001', 'superadmin@restaurant.local', '$2b$12$14jo7cdto35I2SKs6SbX6ubImkpFG0Kjgyv80qx6lzn9mjF05db26', 'super_admin'),
+  (2, 1, 'Demo Restaurant Admin', '+971500000002', 'owner@demorestaurant.local', '$2b$12$14jo7cdto35I2SKs6SbX6ubImkpFG0Kjgyv80qx6lzn9mjF05db26', 'admin');
 
 INSERT INTO users (id, restaurant_id, full_name, phone)
 VALUES (1, 1, 'Ahmed Khan', '+971501234567');

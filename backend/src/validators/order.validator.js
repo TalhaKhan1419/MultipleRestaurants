@@ -3,8 +3,8 @@ const { z } = require("zod");
 const createOrderSchema = z.object({
   tableId: z.coerce.number().int().positive().optional().nullable(),
   qrToken: z.string().optional().nullable(),
-  customerName: z.string().min(1, "Customer name is required").default("Guest Customer"),
-  customerPhone: z.string().min(1, "Customer phone is required").default("0000000000"),
+  customerName: z.string().optional().nullable().default("Guest"),
+  customerPhone: z.string().optional().nullable().default("0000000000"),
   orderType: z.enum(["dine_in", "takeaway"]).default("dine_in"),
   discountAmount: z.coerce.number().min(0).default(0),
   paymentMethod: z.enum(["cash", "card", "online", "qr_pay", "unassigned"]).default("unassigned"),
@@ -12,6 +12,7 @@ const createOrderSchema = z.object({
     z.object({
       menuItemId: z.coerce.number().int().positive(),
       quantity: z.coerce.number().int().positive().min(1),
+      notes: z.string().optional().nullable(),
     })
   ).min(1, "At least one item is required"),
   notes: z.string().optional().nullable(),

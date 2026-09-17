@@ -371,64 +371,96 @@ export default function MenuManager() {
 
             {/* Dishes Grid */}
             {filteredItems.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 text-xs font-medium">
-                No dishes found matching your search.
+              <div className="py-16 text-center text-slate-400 text-xs font-medium space-y-2">
+                <UtensilsCrossed className="w-10 h-10 mx-auto text-slate-300" />
+                <div>No dishes found matching your search.</div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {filteredItems.map((item) => {
                   const isVeg = isDishVeg(item);
                   return (
                     <div
                       key={item.id}
-                      className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-orange-300 transition-all shadow-xs flex flex-col justify-between"
+                      className="p-4 rounded-2xl border border-slate-200/90 bg-white hover:border-orange-300 hover:shadow-md transition-all shadow-xs flex flex-col justify-between group"
                     >
                       <div>
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <span className={`w-2.5 h-2.5 rounded-full ${isVeg ? "bg-emerald-500" : "bg-rose-500"}`} />
-                              <span className="text-[10px] font-bold text-slate-500">
-                                {isVeg ? "Pure Veg" : "Non-Veg"}
-                              </span>
+                        <div className="flex items-start gap-3.5">
+                          {/* Dish Image Thumbnail or Fallback Icon */}
+                          <div className="w-16 h-16 rounded-xl bg-gradient-to-tr from-orange-100 to-amber-50 border border-orange-200/80 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              />
+                            ) : (
+                              <UtensilsCrossed className="w-6 h-6 text-orange-500" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`w-2.5 h-2.5 rounded-full ${isVeg ? "bg-emerald-500 ring-2 ring-emerald-100" : "bg-rose-500 ring-2 ring-rose-100"}`} />
+                                <span className={`text-[10px] font-extrabold uppercase tracking-wide ${isVeg ? "text-emerald-700" : "text-rose-700"}`}>
+                                  {isVeg ? "Veg" : "Non-Veg"}
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleToggleStock(item)}
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border transition-all cursor-pointer ${
+                                  item.isAvailable
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : "bg-rose-50 text-rose-700 border-rose-200"
+                                }`}
+                              >
+                                {item.isAvailable ? "In Stock" : "Out of Stock"}
+                              </button>
                             </div>
 
-                            <h3 className="text-sm font-bold text-slate-800">{item.name}</h3>
-                            <div className="text-sm font-bold text-slate-900 mt-0.5">
+                            <h3 className="text-sm font-bold text-slate-800 mt-1 truncate">{item.name}</h3>
+                            <div className="text-sm font-black text-orange-600 mt-0.5">
                               ₹{Number(item.price).toFixed(2)}
                             </div>
                           </div>
-
-                          <button
-                            type="button"
-                            onClick={() => handleToggleStock(item)}
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-                              item.isAvailable
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : "bg-rose-50 text-rose-700 border-rose-200"
-                            }`}
-                          >
-                            {item.isAvailable ? "In Stock" : "Out of Stock"}
-                          </button>
                         </div>
 
-                        <p className="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
-                          {item.description || "No description provided."}
-                        </p>
+                        {item.description && (
+                          <p className="text-xs text-slate-500 mt-2.5 line-clamp-2 leading-relaxed">
+                            {item.description}
+                          </p>
+                        )}
+
+                        {item.categories && item.categories.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap mt-2.5">
+                            {item.categories.map((c) => (
+                              <span
+                                key={c.id}
+                                className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200"
+                              >
+                                {c.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-end gap-1.5 mt-4 pt-3 border-t border-slate-100">
                         <button
                           type="button"
                           onClick={() => handleOpenEditModal(item)}
-                          className="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
                         >
                           Edit
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
-                          className="p-1 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          title="Delete dish"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
