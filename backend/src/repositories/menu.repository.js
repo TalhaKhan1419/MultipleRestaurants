@@ -159,12 +159,20 @@ async function findPublicMenu(qrToken) {
     [qrToken],
   );
 
+  const isGeneric = !tables.length || qrToken === "default" || qrToken === "menu";
+
+  if (!tables.length) {
+    [tables] = await db.query(
+      "SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity, rt.status, rt.qr_token AS qrToken, r.id AS restaurantId, r.name AS restaurantName FROM restaurant_tables rt INNER JOIN restaurants r ON r.id = rt.restaurant_id WHERE r.is_active = 1 LIMIT 1"
+    );
+  }
+
   if (!tables.length) return null;
   const currentTable = tables[0];
 
   const [allTables, categories, items] = await Promise.all([
     db.query(
-      "SELECT id AS tableId, table_number AS tableNumber, capacity, status, qr_token AS qrToken FROM restaurant_tables WHERE restaurant_id = ? ORDER BY table_number ASC",
+      "SELECT id AS tableId, table_number AS tableNumber, capacity, status, qr_token AS qrToken FROM restaurant_tables WHERE restaurant_id = ? ORDER BY CAST(table_number AS UNSIGNED), table_number ASC",
       [currentTable.restaurantId],
     ).then(([r]) => r),
     findCategories(currentTable.restaurantId),
@@ -173,6 +181,7 @@ async function findPublicMenu(qrToken) {
 
   return {
     ...currentTable,
+    isGenericAccess: isGeneric,
     tables: allTables,
     categories: categories.map((category) => ({
       ...category,

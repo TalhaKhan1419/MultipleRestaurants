@@ -6,6 +6,7 @@ import { playOrderChime } from "../../utils/audioAlert";
 export default function BillRequestNotifier({ onOpenBill }) {
   const [activeRequest, setActiveRequest] = useState(null);
   const seenRequestIds = useRef(new Set());
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -14,6 +15,16 @@ export default function BillRequestNotifier({ onOpenBill }) {
       try {
         const orders = await api.owner.getOrders({ limit: 100 });
         if (!isMounted || !Array.isArray(orders)) return;
+
+        if (!isInitializedRef.current) {
+          orders.forEach((order) => {
+            if (order.billRequestedAt && order.paymentStatus !== "paid") {
+              seenRequestIds.current.add(order.id);
+            }
+          });
+          isInitializedRef.current = true;
+          return;
+        }
 
         const requestedBill = orders.find(
           (order) => order.billRequestedAt && order.paymentStatus !== "paid" && !seenRequestIds.current.has(order.id)

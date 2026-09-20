@@ -13,6 +13,7 @@ async function requireTenant(req, res, next) {
       }
       if (Number.isInteger(targetId) && targetId > 0) {
         req.tenant = { restaurantId: targetId };
+        req.tenantId = targetId;
         return next();
       }
     }
@@ -23,6 +24,7 @@ async function requireTenant(req, res, next) {
       return res.status(403).json({ success: false, message: "Restaurant tenant access is required" });
     }
     req.tenant = { restaurantId };
+    req.tenantId = restaurantId;
     return next();
   } catch (err) {
     return next(err);

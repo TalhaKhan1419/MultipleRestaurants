@@ -1,4 +1,4 @@
-const API_BASE = "/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 let activeToken = localStorage.getItem("token") || null;
 
 function getToken() {
@@ -82,6 +82,13 @@ export const api = {
     updateTableStatus: (id, status) => request(`/tables/${id}/status`, { method: "PATCH", body: { status } }),
     getTableQRCode: (id) => request(`/tables/${id}/qrcode`),
     deleteTable: (id) => request(`/tables/${id}`, { method: "DELETE" }),
+    // Rooms
+    getRooms: () => request("/rooms"),
+    createRoom: (data) => request("/rooms", { method: "POST", body: data }),
+    updateRoom: (id, data) => request(`/rooms/${id}`, { method: "PUT", body: data }),
+    deleteRoom: (id) => request(`/rooms/${id}`, { method: "DELETE" }),
+    checkInRoom: (id, data) => request(`/rooms/${id}/check-in`, { method: "POST", body: data }),
+    checkOutRoom: (id) => request(`/rooms/${id}/check-out`, { method: "POST" }),
     // Menu
     getMenu: () => request("/menu"),
     createMenuItem: (formData) => request("/menu", { method: "POST", body: formData }),

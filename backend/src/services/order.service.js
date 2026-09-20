@@ -77,8 +77,8 @@ async function updateKitchenStatus(restaurantId, id, status) {
 async function updatePaymentStatus(restaurantId, id, paymentStatus, paymentMethod = null) {
   if (paymentStatus === "paid") {
     const order = await getOrder(restaurantId, id);
-    if (!["ready", "completed"].includes(order.kitchenStatus)) {
-      const error = new Error("Food must be marked ready in KOT before payment can be settled");
+    if (order.kitchenStatus !== "completed") {
+      const error = new Error("KOT status must be marked as 'completed' before payment can be settled");
       error.status = 400;
       throw error;
     }

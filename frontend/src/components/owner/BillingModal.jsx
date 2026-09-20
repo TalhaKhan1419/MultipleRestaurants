@@ -26,13 +26,17 @@ export default function BillingModal({ order, isOpen, onClose, onPaymentComplete
   if (!isOpen || !order) return null;
 
   const isPaid = order.paymentStatus === "paid";
-  const canSettle = !isPaid;
+  const canSettle = !isPaid && order?.kitchenStatus === "completed";
 
   const handlePayment = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      await api.owner.updatePaymentStatus(order.id, "paid", paymentMethod);
+      const ids = order.orderIds && order.orderIds.length > 0 ? order.orderIds : [order.id];
+      for (const id of ids) {
+        await api.owner.updatePaymentStatus(id, "paid", paymentMethod);
+        await api.owner.updateOrderStatus(id, "completed");
+      }
       const paidOrder = { ...order, paymentStatus: "paid", paymentMethod, status: "completed" };
       printReceipt(paidOrder);
       onPaymentComplete?.(paidOrder);
@@ -57,7 +61,7 @@ export default function BillingModal({ order, isOpen, onClose, onPaymentComplete
 
         <div className="space-y-5 p-5">
           {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-700">{error}</div>}
-          {!canSettle && !isPaid && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">Mark the food as ready in KOT before settling this bill.</div>}
+          {!canSettle && !isPaid && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">Mark the KOT status as completed before settling this bill.</div>}
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
             <div className="mb-3 flex items-center justify-between font-semibold text-slate-700"><span>{(order.items || []).reduce((total, item) => total + Number(item.quantity || 0), 0)} items</span><span>{order.customerName || "Guest Diner"}</span></div>

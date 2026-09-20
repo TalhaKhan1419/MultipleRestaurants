@@ -21,6 +21,7 @@ app.use("/api/categories", require("./routes/category.routes"));
 app.use("/api/menu", require("./routes/menu.routes"));
 app.use("/api/public", require("./routes/public.routes"));
 app.use("/api/tables", require("./routes/table.routes"));
+app.use("/api/rooms", require("./routes/room.routes"));
 app.use("/api/orders", require("./routes/order.routes"));
 app.use(notFound);
 app.use(errorHandler);

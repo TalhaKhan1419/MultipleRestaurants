@@ -268,14 +268,20 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onStatusUpda
 
           <div className="flex items-center gap-2">
             {order.paymentStatus !== "paid" && (
-              <button
-                type="button"
-                onClick={() => onOpenBilling?.(order)}
-                className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-              >
-                <CircleDollarSign className="w-3.5 h-3.5" />
-                <span>Open Bill</span>
-              </button>
+              order.kitchenStatus === "completed" ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenBilling?.(order)}
+                  className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                >
+                  <CircleDollarSign className="w-3.5 h-3.5" />
+                  <span>Open Bill</span>
+                </button>
+              ) : (
+                <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-200">
+                  Mark KOT Completed to Open Bill
+                </span>
+              )
             )}
             {order.status === "pending" && (
               <button

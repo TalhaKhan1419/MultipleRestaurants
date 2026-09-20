@@ -29,8 +29,11 @@ import BillingModal from "./components/owner/BillingModal";
 
 function MainApp() {
   const { isAuthenticated, role, loading } = useAuth();
-  const tableMatch = window.location.pathname.match(/^\/table\/([^/]+)$/);
-  const scannedQrToken = tableMatch ? decodeURIComponent(tableMatch[1]) : null;
+  const path = window.location.pathname;
+  const isCustomerRoute = path.startsWith("/menu") || path.startsWith("/table") || path === "/customer";
+  const routeTokenMatch = path.match(/^\/(?:table|menu)\/([^/]+)$/);
+  const scannedQrToken = routeTokenMatch ? decodeURIComponent(routeTokenMatch[1]) : (isCustomerRoute ? "default" : null);
+
   const [activeTab, setActiveTabState] = useState(() => {
     return localStorage.getItem("activeTab") || (role === "super_admin" ? "super_dashboard" : "dashboard");
   });
@@ -93,10 +96,10 @@ function MainApp() {
     };
   }, [isAuthenticated, role]);
 
-  if (scannedQrToken) {
+  if (isCustomerRoute || scannedQrToken) {
     return (
       <CustomerMenuView
-        qrToken={scannedQrToken}
+        qrToken={scannedQrToken || "default"}
         onClose={() => {
           window.location.href = "/";
         }}
@@ -198,7 +201,7 @@ function MainApp() {
       <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
         {/* Restaurant Owner Views */}
         {activeTab === "dashboard" && <OwnerDashboard onNavigate={setActiveTab} />}
-        {activeTab === "hotel" && <TableManager initialMode="rooms" />}
+        {activeTab === "hotel" && <TableManager initialMode="rooms" initialFilter="occupied" hideModeSwitcher={true} />}
         {activeTab === "orders" && (
           <OrderManager refreshKey={ordersRefreshKey} onSelectOrder={(order) => {
             setSelectedOrderForModal(order);

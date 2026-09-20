@@ -55,6 +55,11 @@ export default function TableOrderMenuModal({
   const [existingOrders, setExistingOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
+  const isKotCompleted = useMemo(() => {
+    if (existingOrders.length === 0) return false;
+    return existingOrders.every((o) => o.kitchenStatus === "completed");
+  }, [existingOrders]);
+
   // Cart: Map of menuItemId -> { item, quantity, notes }
   const [cart, setCart] = useState({});
   const [editingNotesItemId, setEditingNotesItemId] = useState(null);
@@ -346,7 +351,11 @@ export default function TableOrderMenuModal({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-800 tracking-tight">
-                  Take Order — {orderType === "dine_in" ? `Table ${activeTableObj?.tableNumber || selectedTableId || "POS"}` : "Takeaway / Parcel"}
+                  {table?.roomNumber
+                    ? `Room Service — Room ${table.roomNumber}`
+                    : orderType === "dine_in"
+                    ? `Take Order — Table ${activeTableObj?.tableNumber || selectedTableId || "POS"}`
+                    : "Takeaway / Parcel"}
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-orange-100 text-orange-700 border border-orange-200">
                   {orderType === "dine_in" ? "Dine-In POS" : "Takeaway"}
@@ -506,6 +515,12 @@ export default function TableOrderMenuModal({
 
               {/* Menu Cards Grid - Compact POS Tiles (Image 2 style) */}
               <div className="flex-1 overflow-y-auto p-3">
+                {isKotCompleted && (
+                  <div className="mb-2.5 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>KOT Status Completed — Dish addition disabled. Bill & Payment option is enabled.</span>
+                  </div>
+                )}
                 {loading ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-3">
                     <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
@@ -536,7 +551,7 @@ export default function TableOrderMenuModal({
                             inCartCount > 0
                               ? "border-orange-500 ring-2 ring-orange-100 bg-orange-50/20"
                               : "border-slate-200 hover:border-orange-300"
-                          } ${!isAvailable ? "opacity-70 bg-slate-50" : ""}`}
+                          } ${!isAvailable || isKotCompleted ? "opacity-70 bg-slate-50" : ""}`}
                         >
                           <div>
                             {/* Food Icon / Image */}
@@ -566,7 +581,11 @@ export default function TableOrderMenuModal({
 
                           {/* Quick Add Button / Counter */}
                           <div>
-                            {!isAvailable ? (
+                            {isKotCompleted ? (
+                              <div className="text-[10px] font-bold text-emerald-700 py-0.5 bg-emerald-50 border border-emerald-200 rounded-md">
+                                Completed
+                              </div>
+                            ) : !isAvailable ? (
                               <div className="text-[10px] font-bold text-slate-400 py-0.5 bg-slate-100 rounded-md">
                                 Sold Out
                               </div>
@@ -757,19 +776,19 @@ export default function TableOrderMenuModal({
                     <button
                       type="button"
                       onClick={handlePlaceOrder}
-                      disabled={submitting}
-                      className="w-full py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                      disabled={submitting || isKotCompleted}
+                      className="w-full py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs flex items-center justify-center gap-1 shadow-xs cursor-pointer disabled:opacity-50"
                     >
                       <span>SEND TO KITCHEN</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
-                  ) : (
+                  ) : isKotCompleted ? (
                     <div className="grid grid-cols-2 gap-1">
                       <button
                         type="button"
                         onClick={handleCompleteAndSettleOrder}
                         disabled={submitting || existingOrders.length === 0}
-                        className="py-1.5 rounded-lg bg-orange-500 text-white font-bold text-[10px] disabled:opacity-40 cursor-pointer"
+                        className="py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] disabled:opacity-40 cursor-pointer"
                       >
                         RECEIVE PAYMENT
                       </button>
@@ -781,6 +800,18 @@ export default function TableOrderMenuModal({
                         PAY LATER
                       </button>
                     </div>
+                  ) : existingOrders.length > 0 ? (
+                    <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold text-center">
+                      Complete KOT in KOT Manager to enable Bill & Pay
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="w-full py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] cursor-pointer"
+                    >
+                      Close Menu
+                    </button>
                   )}
                 </div>
               </div>

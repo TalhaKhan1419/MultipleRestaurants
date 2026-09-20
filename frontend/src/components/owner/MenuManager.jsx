@@ -477,79 +477,96 @@ export default function MenuManager() {
       {/* Add / Edit Dish Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-xl relative">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-6 border border-slate-200 shadow-xl relative my-auto">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
               <h2 className="text-base font-bold text-slate-800">
                 {editingItem ? "Edit Dish" : "Add New Dish"}
               </h2>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg hover:bg-slate-100"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {modalError && (
-              <div className="mb-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs">
+              <div className="mb-3 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs">
                 {modalError}
               </div>
             )}
 
-            <form onSubmit={handleSubmitDish} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block text-slate-700 font-medium mb-1">Dish Name</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800"
-                />
+            <form onSubmit={handleSubmitDish} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-medium mb-1">Dish Name <span className="text-rose-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs text-slate-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    placeholder="e.g. Butter Chicken"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-medium mb-1">Price (₹) <span className="text-rose-500">*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs text-slate-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-medium mb-1">Price (₹)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800"
-                />
-              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-medium mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs text-slate-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    placeholder="Short description..."
+                  />
+                </div>
 
-              <div>
-                <label className="block text-slate-700 font-medium mb-1">Description</label>
-                <textarea
-                  rows="2"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800"
-                />
+                <div>
+                  <label className="block text-slate-700 font-medium mb-1">Dish Photo <span className="text-slate-400 font-normal">(optional)</span></label>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(e) => setFormData({ ...formData, image: e.target.files?.[0] || null })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-1.5 text-xs text-slate-700 file:mr-2 file:rounded-lg file:border-0 file:bg-orange-100 file:px-2.5 file:py-1 file:text-orange-700 file:font-medium file:cursor-pointer cursor-pointer"
+                  />
+                </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between gap-3 mb-1">
                   <label className="block text-slate-700 font-medium">Menu Category <span className="text-rose-500">*</span></label>
-                  <button type="button" onClick={() => setIsCategoryModalOpen(true)} className="text-orange-600 font-semibold hover:text-orange-700">
+                  <button type="button" onClick={() => setIsCategoryModalOpen(true)} className="text-orange-600 font-semibold hover:text-orange-700 cursor-pointer">
                     + Add category
                   </button>
                 </div>
                 {menu.categories.length === 0 ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800">Create a category first, such as Starters or Drinks.</div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-amber-800 text-xs">Create a category first, such as Starters or Drinks.</div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+                  <div className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
                     {menu.categories.map((category) => (
-                      <label key={category.id} className="flex items-center gap-2 rounded-lg p-1.5 text-slate-700 cursor-pointer hover:bg-white">
+                      <label key={category.id} className="flex items-center gap-2 rounded-lg p-1.5 text-slate-700 cursor-pointer hover:bg-white transition-colors text-xs">
                         <input
                           type="checkbox"
                           checked={formData.categoryIds.includes(category.id)}
                           onChange={() => toggleCategory(category.id)}
-                          className="h-3.5 w-3.5 accent-orange-500"
+                          className="h-3.5 w-3.5 accent-orange-500 rounded cursor-pointer"
                         />
                         <span className="truncate">{category.name}</span>
                       </label>
@@ -558,41 +575,33 @@ export default function MenuManager() {
                 )}
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-medium mb-1">Dish Photo <span className="text-slate-400 font-normal">(optional)</span></label>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(e) => setFormData({ ...formData, image: e.target.files?.[0] || null })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-orange-100 file:px-2 file:py-1 file:text-orange-700"
-                />
-              </div>
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 mt-3">
+                <label className="flex items-center gap-2 text-slate-700 cursor-pointer text-xs">
+                  <input
+                    type="checkbox"
+                    checked={formData.isAvailable}
+                    onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
+                    className="h-3.5 w-3.5 accent-orange-500 rounded cursor-pointer"
+                  />
+                  <span>Available to customers</span>
+                </label>
 
-              <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.isAvailable}
-                  onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
-                  className="h-3.5 w-3.5 accent-orange-500"
-                />
-                Available to customers
-              </label>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={modalLoading}
-                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold cursor-pointer"
-                >
-                  {modalLoading ? "Saving..." : "Save Dish"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={modalLoading}
+                    className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold cursor-pointer disabled:opacity-60 transition-colors"
+                  >
+                    {modalLoading ? "Saving..." : "Save Dish"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -600,8 +609,8 @@ export default function MenuManager() {
       )}
 
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-slate-200 shadow-xl">
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-4 sm:p-5 border border-slate-200 shadow-xl max-h-[88vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
               <div>
                 <h2 className="text-base font-bold text-slate-800">Add Menu Category</h2>

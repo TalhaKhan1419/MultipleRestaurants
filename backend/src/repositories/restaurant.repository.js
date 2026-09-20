@@ -72,6 +72,22 @@ async function createRestaurantWithAdmin(restaurantData, adminData, passwordHash
       [restaurantId, adminData.adminName, adminData.adminPhone, adminData.adminEmail, passwordHash]
     );
 
+    // Seed standard default categories for new restaurant
+    const defaultCats = [
+      ['Starters', 'Light dishes, soup & appetizers', 1],
+      ['Main Course', 'Curries, biryanis & rich mains', 2],
+      ['Beverages', 'Hot & cold drinks, juices, shakes', 3],
+      ['Non-Veg', 'Chicken, mutton, fish & egg specials', 4],
+      ['Chinese & Fast Food', 'Noodles, fried rice, rolls & burgers', 5],
+      ['Desserts & Sweets', 'Ice cream, sweets & dessert treats', 6],
+    ];
+    for (const [name, desc, order] of defaultCats) {
+      await connection.query(
+        "INSERT INTO categories (restaurant_id, name, description, display_order, is_active) VALUES (?, ?, ?, ?, 1)",
+        [restaurantId, name, desc, order]
+      );
+    }
+
     await connection.commit();
     return {
       restaurantId,

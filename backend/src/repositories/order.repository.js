@@ -34,11 +34,18 @@ async function findAll(restaurantId, filters = {}) {
     params.push(filters.tableId);
   }
 
+  if (filters.today === "true" || filters.today === true) {
+    query += " AND DATE(o.created_at) = CURRENT_DATE()";
+  }
+
   query += " ORDER BY o.created_at DESC";
 
   if (filters.limit) {
-    query += " LIMIT ?";
-    params.push(Number(filters.limit));
+    const limit = Number(filters.limit);
+    const page = Math.max(1, Number(filters.page) || 1);
+    const offset = (page - 1) * limit;
+    query += " LIMIT ? OFFSET ?";
+    params.push(limit, offset);
   }
 
   const [orders] = await db.query(query, params);
@@ -402,8 +409,8 @@ async function requestBillByQr(orderId, qrToken, paymentMethod) {
     error.status = 400;
     throw error;
   }
-  if (!["ready", "completed"].includes(order.kitchenStatus)) {
-    const error = new Error("You can request the bill once your food is ready");
+  if (order.kitchenStatus !== "completed") {
+    const error = new Error("You can request the bill once KOT status is completed");
     error.status = 400;
     throw error;
   }

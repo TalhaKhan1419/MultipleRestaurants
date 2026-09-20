@@ -4,6 +4,7 @@ import TableOrderMenuModal from "./TableOrderMenuModal";
 import CustomerDetailsModal from "./CustomerDetailsModal";
 import BillingModal from "./BillingModal";
 import KOTConfirmationNotifier from "./KOTConfirmationNotifier";
+import { combineTableOrders } from "../../utils/orderUtils";
 import {
   ShoppingBag,
   Plus,
@@ -410,7 +411,7 @@ export default function OrderManager({ onSelectOrder, refreshKey = 0 }) {
                       ) : (
                         <div className="space-y-1 max-h-44 overflow-y-auto">
                           {data.orders.slice(0, 1).map((ord) => {
-                            const isKotReady = ord.kitchenStatus === "ready" || ord.kitchenStatus === "completed";
+                            const isKotCompleted = ord.kitchenStatus === "completed";
                             const rawName = ord.customerName || "";
                             const isTablePrefix = !rawName || rawName.toLowerCase().startsWith("table ");
                             const displayName = isTablePrefix ? "Guest" : rawName;
@@ -423,7 +424,7 @@ export default function OrderManager({ onSelectOrder, refreshKey = 0 }) {
                                   handleOpenTableMenu(table);
                                 }}
                                 className={`p-1.5 rounded-lg border text-[10px] space-y-1 cursor-pointer transition-all shadow-2xs group/ticket ${
-                                  isKotReady ? "bg-emerald-50/70 border-emerald-300 hover:border-emerald-400" : "bg-white border-slate-200 hover:border-orange-300"
+                                  isKotCompleted ? "bg-emerald-50/70 border-emerald-300 hover:border-emerald-400" : "bg-white border-slate-200 hover:border-orange-300"
                                 }`}
                               >
                                 <div className="flex items-center justify-between gap-1">
@@ -432,12 +433,14 @@ export default function OrderManager({ onSelectOrder, refreshKey = 0 }) {
                                   </span>
                                   <span
                                     className={`text-[7.5px] font-extrabold px-1 py-0.2 rounded border uppercase shrink-0 ${
-                                      isKotReady
+                                      isKotCompleted
                                         ? "bg-emerald-500 text-white border-emerald-600 shadow-2xs"
+                                        : ord.kitchenStatus === "ready"
+                                        ? "bg-blue-500 text-white border-blue-600"
                                         : statusColors[ord.status]
                                     }`}
                                   >
-                                    {isKotReady ? "KOT READY" : ord.status}
+                                    {isKotCompleted ? "KOT COMPLETED" : ord.kitchenStatus === "ready" ? "KOT READY" : ord.status}
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between text-slate-500 text-[9.5px]">
@@ -457,12 +460,12 @@ export default function OrderManager({ onSelectOrder, refreshKey = 0 }) {
                   {/* Bottom Footer Action for Occupied Tables */}
                   {isOccupied && (
                     <div className="pt-1 mt-1 border-t border-slate-100 flex items-center gap-1">
-                      {data.orders.some((o) => o.kitchenStatus === "ready" || o.kitchenStatus === "completed") ? (
+                      {data.orders.some((o) => o.kitchenStatus === "completed") ? (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            const ord = data.orders[0];
+                            const ord = data.orders.find((o) => o.kitchenStatus === "completed") || data.orders[0];
                             if (ord) setBillingModalOrder(ord);
                             else handleOpenTableMenu(table);
                           }}
