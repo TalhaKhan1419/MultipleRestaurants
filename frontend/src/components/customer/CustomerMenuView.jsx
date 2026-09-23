@@ -32,12 +32,15 @@ import {
   MoreHorizontal,
   Grid,
   ChevronDown,
+  Bed,
 } from "lucide-react";
 
 export default function CustomerMenuView({ qrToken, onClose }) {
   const [menuData, setMenuData] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
+  const [selectionMode, setSelectionMode] = useState("tables"); // 'tables' | 'rooms'
+  const [tableStatusFilter, setTableStatusFilter] = useState("available"); // 'available' | 'all' | 'occupied'
   // Current view step: 'menu' | 'order_success' | 'my_orders'
   const [currentStep, setCurrentStep] = useState("menu");
   const [loading, setLoading] = useState(true);
@@ -69,6 +72,10 @@ export default function CustomerMenuView({ qrToken, onClose }) {
 
   const availableTables = useMemo(() => {
     return menuData?.tables?.filter((t) => (t.status || "").toLowerCase() === "available") || [];
+  }, [menuData]);
+
+  const availableRooms = useMemo(() => {
+    return menuData?.rooms?.filter((r) => (r.status || "").toLowerCase() === "available") || [];
   }, [menuData]);
 
   useEffect(() => {
@@ -460,7 +467,7 @@ export default function CustomerMenuView({ qrToken, onClose }) {
     return (
       <div className="min-h-screen bg-[#eef2f6] text-slate-800 flex flex-col justify-between p-4 sm:p-6 lg:p-8 font-sans">
         <div className="max-w-4xl w-full mx-auto flex-1 flex flex-col justify-center py-6">
-          {/* Header / Brand Branding matching Admin Panel Header */}
+          {/* Header / Brand Branding */}
           <div className="text-center mb-8">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-orange-600 via-orange-500 to-amber-400 text-white shadow-md shadow-orange-500/20 flex items-center justify-center mx-auto mb-3">
               <UtensilsCrossed className="w-7 h-7 text-white" />
@@ -482,7 +489,9 @@ export default function CustomerMenuView({ qrToken, onClose }) {
           {availableTables.length === 0 ? (
             <div className="bg-white rounded-3xl p-8 text-center max-w-md mx-auto border border-slate-200 shadow-sm">
               <Grid className="w-12 h-12 text-amber-500 mx-auto mb-3 opacity-80" />
-              <h3 className="text-base font-bold text-slate-800 mb-1">No Tables Available Right Now</h3>
+              <h3 className="text-base font-bold text-slate-800 mb-1">
+                No Tables Available Right Now
+              </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
                 All tables are currently occupied. Please ask our restaurant staff or manager for assistance.
               </p>
@@ -490,15 +499,16 @@ export default function CustomerMenuView({ qrToken, onClose }) {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 max-w-3xl mx-auto w-full">
               {availableTables.map((tbl) => {
-                const isSelected = selectedTable?.tableId === (tbl.tableId || tbl.id);
+                const itemId = tbl.tableId || tbl.id;
+                const isSelected = selectedTable?.tableId === itemId;
 
                 return (
                   <button
-                    key={tbl.tableId || tbl.id}
+                    key={itemId}
                     type="button"
                     onClick={() => {
                       setSelectedTable({
-                        tableId: tbl.tableId || tbl.id,
+                        tableId: itemId,
                         tableNumber: tbl.tableNumber,
                         capacity: tbl.capacity || 4,
                         status: tbl.status || "available",
@@ -1546,22 +1556,22 @@ export default function CustomerMenuView({ qrToken, onClose }) {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TABLE SELECTION MODAL
+          TABLE & ROOM SELECTION MODAL
          ───────────────────────────────────────────────────────────── */}
       {isTableModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 border border-slate-200 shadow-2xl relative my-auto">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
-                  <Grid className="w-5 h-5 text-orange-600" />
+                  {selectionMode === "rooms" ? <Bed className="w-5 h-5 text-orange-600" /> : <Grid className="w-5 h-5 text-orange-600" />}
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-800 tracking-tight">
-                    Select Your Table
+                    Select Table / Room
                   </h3>
                   <p className="text-xs text-slate-500 font-medium">
-                    Select an available table to place your order directly
+                    Choose your dining table or guest room for order
                   </p>
                 </div>
               </div>
@@ -1574,23 +1584,70 @@ export default function CustomerMenuView({ qrToken, onClose }) {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[60vh] overflow-y-auto p-1">
-              {menuData?.tables?.map((tbl) => {
-                const isSelected = selectedTable?.tableId === (tbl.tableId || tbl.id);
-                const isAvailable = tbl.status === "available";
+            {/* Mode Switcher inside Modal */}
+            {menuData?.rooms && menuData.rooms.length > 0 && (
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setSelectionMode("tables")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                    selectionMode === "tables"
+                      ? "bg-orange-500 text-white border-orange-500 shadow-xs"
+                      : "bg-slate-50 text-slate-600 hover:bg-slate-100 border-slate-200"
+                  }`}
+                >
+                  <Grid className="w-3.5 h-3.5" />
+                  <span>Tables ({availableTables.length} Avail)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectionMode("rooms")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                    selectionMode === "rooms"
+                      ? "bg-orange-500 text-white border-orange-500 shadow-xs"
+                      : "bg-slate-50 text-slate-600 hover:bg-slate-100 border-slate-200"
+                  }`}
+                >
+                  <Bed className="w-3.5 h-3.5" />
+                  <span>Rooms ({availableRooms.length} Avail)</span>
+                </button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[50vh] overflow-y-auto p-1">
+              {(selectionMode === "rooms" ? (menuData?.rooms || []) : (menuData?.tables || [])).map((item) => {
+                const isRoom = selectionMode === "rooms";
+                const itemId = isRoom ? item.roomId : (item.tableId || item.id);
+                const itemNum = isRoom ? item.roomNumber : item.tableNumber;
+                const isSelected = isRoom
+                  ? selectedTable?.roomId === itemId
+                  : selectedTable?.tableId === itemId;
+                const isAvailable = (item.status || "").toLowerCase() === "available";
 
                 return (
                   <button
-                    key={tbl.tableId || tbl.id}
+                    key={itemId}
                     type="button"
                     onClick={() => {
-                      setSelectedTable({
-                        tableId: tbl.tableId || tbl.id,
-                        tableNumber: tbl.tableNumber,
-                        capacity: tbl.capacity || 4,
-                        status: tbl.status || "available",
-                        qrToken: tbl.qrToken,
-                      });
+                      if (isRoom) {
+                        setSelectedTable({
+                          roomId: item.roomId,
+                          tableId: null,
+                          tableNumber: `Room ${item.roomNumber}`,
+                          roomNumber: item.roomNumber,
+                          isRoom: true,
+                          capacity: item.capacity || 2,
+                          status: item.status || "available",
+                        });
+                      } else {
+                        setSelectedTable({
+                          tableId: item.tableId || item.id,
+                          tableNumber: item.tableNumber,
+                          capacity: item.capacity || 4,
+                          status: item.status || "available",
+                          qrToken: item.qrToken,
+                        });
+                      }
                       setIsTableModalOpen(false);
                     }}
                     className={`p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center text-center transition-all cursor-pointer relative ${
@@ -1600,10 +1657,10 @@ export default function CustomerMenuView({ qrToken, onClose }) {
                     }`}
                   >
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Table
+                      {isRoom ? "Room" : "Table"}
                     </span>
                     <span className="text-xl font-black text-slate-800 tracking-tight my-0.5">
-                      {tbl.tableNumber}
+                      {itemNum}
                     </span>
                     <div className="flex items-center gap-1.5 mt-1">
                       <span
@@ -1628,14 +1685,14 @@ export default function CustomerMenuView({ qrToken, onClose }) {
 
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" /> Available Tables
+                <span className="w-2 h-2 rounded-full bg-emerald-500" /> Available {selectionMode === "rooms" ? "Rooms" : "Tables"}
               </span>
               <button
                 type="button"
                 onClick={() => setIsTableModalOpen(false)}
                 className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer transition-colors shadow-md shadow-orange-500/20"
               >
-                Confirm Table
+                Confirm
               </button>
             </div>
           </div>

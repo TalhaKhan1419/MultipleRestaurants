@@ -433,6 +433,21 @@ async function getDashboardStats(restaurantId) {
     [restaurantId]
   );
 
+  const [stats30DaysRows] = await db.query(
+    `SELECT COUNT(*) AS ordersCount30,
+            COALESCE(SUM(total_amount), 0) AS revenue30
+     FROM orders
+     WHERE restaurant_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+    [restaurantId]
+  );
+
+  const [roomService30Rows] = await db.query(
+    `SELECT COALESCE(SUM(total_amount), 0) AS roomServiceRevenue30
+     FROM orders
+     WHERE restaurant_id = ? AND (order_type = 'room_service' OR table_id IS NULL) AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
+    [restaurantId]
+  );
+
   const [totalStats] = await db.query(
     `SELECT COUNT(*) AS totalOrders,
             COALESCE(SUM(total_amount), 0) AS totalRevenue,
@@ -460,10 +475,10 @@ async function getDashboardStats(restaurantId) {
 
   const [tableStats] = await db.query(
     `SELECT COUNT(*) AS totalTables,
-            COALESCE(SUM(CASE WHEN status = 'occupied' THEN 1 ELSE 0 END), 0) AS occupiedTables,
-            COALESCE(SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END), 0) AS availableTables
-     FROM restaurant_tables
-     WHERE restaurant_id = ?`,
+            COALESCE(SUM(CASE WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) > 0 OR rt.status = 'occupied' THEN 1 ELSE 0 END), 0) AS occupiedTables,
+            COALESCE(SUM(CASE WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) = 0 AND rt.status <> 'occupied' THEN 1 ELSE 0 END), 0) AS availableTables
+     FROM restaurant_tables rt
+     WHERE rt.restaurant_id = ?`,
     [restaurantId]
   );
 
@@ -488,26 +503,108 @@ async function getDashboardStats(restaurantId) {
     [restaurantId]
   );
 
-  const [salesTrend] = await db.query(
-    `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS date,
+  const [salesTrendRows] = await db.query(
+    `SELECT DATE_FORMAT(created_at, '%d %b') AS dateLabel,
+            DATE_FORMAT(created_at, '%Y-%m-%d') AS date,
             COUNT(*) AS ordersCount,
             COALESCE(SUM(total_amount), 0) AS revenue
      FROM orders
-     WHERE restaurant_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-     GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+     WHERE restaurant_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+     GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d'), DATE_FORMAT(created_at, '%d %b')
      ORDER BY date ASC`,
+    [restaurantId]
+  );
+
+  // Build complete 30-day date map
+  const salesMap = new Map();
+  salesTrendRows.forEach((r) => {
+    salesMap.set(r.date, {
+      dateLabel: r.dateLabel,
+      ordersCount: Number(r.ordersCount || 0),
+      revenue: Number(r.revenue || 0),
+    });
+  });
+
+  const salesTrend = [];
+  const today = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(today.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const dateLabel = d.toLocaleDateString("en-US", { day: "2-digit", month: "short" });
+
+    if (salesMap.has(dateStr)) {
+      const existing = salesMap.get(dateStr);
+      salesTrend.push({
+        date: dateStr,
+        dateLabel: existing.dateLabel || dateLabel,
+        ordersCount: existing.ordersCount,
+        revenue: existing.revenue,
+      });
+    } else {
+      salesTrend.push({
+        date: dateStr,
+        dateLabel,
+        ordersCount: 0,
+        revenue: 0,
+      });
+    }
+  }
+
+  const [popularItems] = await db.query(
+    `SELECT oi.item_name AS name, SUM(oi.quantity) AS totalQty
+     FROM order_items oi
+     JOIN orders o ON o.id = oi.order_id
+     WHERE o.restaurant_id = ? AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+     GROUP BY oi.item_name
+     ORDER BY totalQty DESC
+     LIMIT 5`,
+    [restaurantId]
+  );
+
+  const [kitchenQueue] = await db.query(
+    `SELECT o.id, o.order_number AS orderNumber, o.status, o.kitchen_status AS kitchenStatus,
+            o.order_type AS orderType, o.total_amount AS totalAmount, o.created_at AS createdAt,
+            rt.table_number AS tableNumber,
+            COALESCE((SELECT SUM(quantity) FROM order_items oi WHERE oi.order_id = o.id), 0) AS itemCount
+     FROM orders o
+     LEFT JOIN restaurant_tables rt ON rt.id = o.table_id
+     WHERE o.restaurant_id = ? AND o.status NOT IN ('cancelled', 'completed')
+     ORDER BY o.created_at ASC
+     LIMIT 10`,
+    [restaurantId]
+  );
+
+  const [restaurantRows] = await db.query(
+    `SELECT id, name, slug FROM restaurants WHERE id = ?`,
+    [restaurantId]
+  );
+
+  const [roomStats] = await db.query(
+    `SELECT COUNT(*) AS totalRooms,
+            COALESCE(SUM(CASE WHEN b.id IS NOT NULL OR r.status = 'occupied' THEN 1 ELSE 0 END), 0) AS occupiedRooms,
+            COALESCE(SUM(CASE WHEN b.id IS NULL AND (r.status IS NULL OR r.status = 'available') THEN 1 ELSE 0 END), 0) AS availableRooms
+     FROM guest_rooms r
+     LEFT JOIN room_bookings b ON r.id = b.room_id AND b.status = 'active'
+     WHERE r.restaurant_id = ?`,
     [restaurantId]
   );
 
   return {
     today: todayRows[0] || { todayOrders: 0, todayRevenue: 0, todayPaidRevenue: 0, todayTaxCollected: 0 },
+    stats30Days: stats30DaysRows[0] || { ordersCount30: 0, revenue30: 0 },
+    roomService30: roomService30Rows[0] || { roomServiceRevenue30: 0 },
     overall: totalStats[0] || { totalOrders: 0, totalRevenue: 0, totalTaxCollected: 0 },
     paymentBreakdown,
     statusBreakdown: statusCounts,
     tables: tableStats[0] || { totalTables: 0, occupiedTables: 0, availableTables: 0 },
+    rooms: roomStats[0] || { totalRooms: 0, occupiedRooms: 0, availableRooms: 0 },
     menu: counts[0] || { totalMenuItems: 0, totalCategories: 0 },
     recentOrders,
     salesTrend,
+    popularItems,
+    kitchenQueue,
+    restaurant: restaurantRows[0] || { name: "UP 65 restaurant & Buffet", slug: "up65" },
   };
 }
 

@@ -111,6 +111,37 @@ export const api = {
     updateProfile: (data) => request("/restaurants/me", { method: "PUT", body: data }),
   },
 
+  // Inventory API
+  inventory: {
+    getSummary: () => request("/inventory/summary"),
+    getLowStock: () => request("/inventory/low-stock"),
+    getItems: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/inventory${qs ? `?${qs}` : ""}`);
+    },
+    getItem: (id) => request(`/inventory/${id}`),
+    createItem: (data) => request("/inventory", { method: "POST", body: data }),
+    updateItem: (id, data) => request(`/inventory/${id}`, { method: "PUT", body: data }),
+    deleteItem: (id) => request(`/inventory/${id}`, { method: "DELETE" }),
+    stockIn: (id, data) => request(`/inventory/${id}/stock-in`, { method: "POST", body: data }),
+    stockOut: (id, data) => request(`/inventory/${id}/stock-out`, { method: "POST", body: data }),
+    adjustStock: (id, data) => request(`/inventory/${id}/adjust`, { method: "POST", body: data }),
+    getHistory: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/inventory/history${qs ? `?${qs}` : ""}`);
+    },
+    getItemHistory: (id, params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/inventory/${id}/history${qs ? `?${qs}` : ""}`);
+    },
+    getCategories: () => request("/inventory/categories"),
+    createCategory: (data) => request("/inventory/categories", { method: "POST", body: data }),
+    updateCategory: (id, data) => request(`/inventory/categories/${id}`, { method: "PUT", body: data }),
+    deleteCategory: (id) => request(`/inventory/categories/${id}`, { method: "DELETE" }),
+    getSuppliers: () => request("/inventory/suppliers"),
+    createSupplier: (data) => request("/inventory/suppliers", { method: "POST", body: data }),
+  },
+
   // Super Admin Platform API
   superAdmin: {
     getStats: () => request("/restaurants/platform-stats"),

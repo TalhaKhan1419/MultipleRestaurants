@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import LoginView from "./components/auth/LoginView";
 import Navbar from "./components/layout/Navbar";
 
+import InventoryManager from "./components/inventory/InventoryManager";
+
 // Owner Views
 import OwnerDashboard from "./components/owner/OwnerDashboard";
 import MenuManager from "./components/owner/MenuManager";
@@ -142,14 +144,14 @@ function MainApp() {
   const handleOpenCustomerView = async () => {
     try {
       const tables = await api.owner.getTables();
-      if (tables && tables.length > 0) {
+      if (tables && tables.length > 0 && tables[0].qrToken) {
         window.open(`/table/${tables[0].qrToken}`, "_blank");
-      } else {
-        window.open("/table/6ba7b810-9dad-11d1-80b4-00c04fd430c8", "_blank");
+        return;
       }
     } catch (e) {
-      window.open("/table/6ba7b810-9dad-11d1-80b4-00c04fd430c8", "_blank");
+      console.error(e);
     }
+    window.open("/menu", "_blank");
   };
 
   const handleOpenBillRequest = (order) => {
@@ -210,7 +212,7 @@ function MainApp() {
         )}
         {activeTab === "kot" && <KOTManager />}
         {activeTab === "menu" && <MenuManager />}
-        {activeTab === "inventory" && <CategoryManager />}
+        {activeTab === "inventory" && <InventoryManager />}
         {activeTab === "categories" && <CategoryManager />}
         {activeTab === "tables" && (
           <TableManager initialMode="tables" />

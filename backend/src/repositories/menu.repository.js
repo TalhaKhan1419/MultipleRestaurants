@@ -155,7 +155,15 @@ async function deleteMenuItem(restaurantId, id) {
 
 async function findPublicMenu(qrToken) {
   let [tables] = await db.query(
-    "SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity, rt.status, rt.qr_token AS qrToken, r.id AS restaurantId, r.name AS restaurantName FROM restaurant_tables rt INNER JOIN restaurants r ON r.id = rt.restaurant_id WHERE rt.qr_token = ? AND r.is_active = 1",
+    `SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity,
+            CASE
+              WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) = 0 THEN 'available'
+              ELSE rt.status
+            END AS status,
+            rt.qr_token AS qrToken, r.id AS restaurantId, r.name AS restaurantName
+     FROM restaurant_tables rt
+     INNER JOIN restaurants r ON r.id = rt.restaurant_id
+     WHERE rt.qr_token = ? AND r.is_active = 1`,
     [qrToken],
   );
 
@@ -163,18 +171,50 @@ async function findPublicMenu(qrToken) {
 
   if (!tables.length) {
     [tables] = await db.query(
-      "SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity, rt.status, rt.qr_token AS qrToken, r.id AS restaurantId, r.name AS restaurantName FROM restaurant_tables rt INNER JOIN restaurants r ON r.id = rt.restaurant_id WHERE r.is_active = 1 LIMIT 1"
+      `SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity,
+              CASE
+                WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) = 0 THEN 'available'
+                ELSE rt.status
+              END AS status,
+              rt.qr_token AS qrToken, r.id AS restaurantId, r.name AS restaurantName
+       FROM restaurant_tables rt
+       INNER JOIN restaurants r ON r.id = rt.restaurant_id
+       WHERE r.is_active = 1 ORDER BY r.id DESC LIMIT 1`
     );
   }
 
   if (!tables.length) return null;
   const currentTable = tables[0];
 
-  const [allTables, categories, items] = await Promise.all([
+  const [allTables, rooms, categories, items] = await Promise.all([
     db.query(
-      "SELECT id AS tableId, table_number AS tableNumber, capacity, status, qr_token AS qrToken FROM restaurant_tables WHERE restaurant_id = ? ORDER BY CAST(table_number AS UNSIGNED), table_number ASC",
+      `SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity,
+              CASE
+                WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) = 0 THEN 'available'
+                ELSE rt.status
+              END AS status,
+              rt.qr_token AS qrToken
+       FROM restaurant_tables rt
+       WHERE rt.restaurant_id = ?
+       ORDER BY CAST(rt.table_number AS UNSIGNED), rt.table_number ASC`,
       [currentTable.restaurantId],
     ).then(([r]) => r),
+    db.query(
+      `SELECT r.id AS roomId, r.room_number AS roomNumber, r.room_type AS type, r.floor, r.capacity, r.price,
+              CASE
+                WHEN b.id IS NOT NULL THEN 'occupied'
+                ELSE r.status
+              END AS status
+       FROM guest_rooms r
+       LEFT JOIN room_bookings b ON r.id = b.room_id AND b.status = 'active'
+       WHERE r.restaurant_id = ?
+       ORDER BY CAST(r.room_number AS UNSIGNED), r.room_number ASC`,
+      [currentTable.restaurantId],
+    ).then(([r]) => r.map((room) => ({
+      ...room,
+      price: room.price != null ? Number(room.price) : null,
+      status: (room.status || "available").toLowerCase(),
+    }))),
     findCategories(currentTable.restaurantId),
     findItemsWithCategories(currentTable.restaurantId),
   ]);
@@ -183,6 +223,7 @@ async function findPublicMenu(qrToken) {
     ...currentTable,
     isGenericAccess: isGeneric,
     tables: allTables,
+    rooms: rooms,
     categories: categories.map((category) => ({
       ...category,
       items: items.filter((item) => item.isAvailable && item.categories.some(({ id }) => id === category.id)),

@@ -21,26 +21,61 @@ async function createOrder(restaurantId, data) {
 
 async function createPublicOrder(data) {
   if (!data.qrToken) {
-    const error = new Error("QR token is required to place a table order");
+    const error = new Error("QR token is required to place an order");
     error.status = 400;
     throw error;
   }
 
-  const [tables] = await db.query(
-    "SELECT id, restaurant_id AS restaurantId FROM restaurant_tables WHERE qr_token = ?",
-    [data.qrToken]
-  );
+  let tableId = data.tableId || null;
+  let restaurantId = null;
 
-  if (!tables.length) {
-    const error = new Error("Invalid table QR code");
+  if (data.qrToken && data.qrToken !== "default" && data.qrToken !== "menu") {
+    const [tables] = await db.query(
+      "SELECT id, restaurant_id AS restaurantId FROM restaurant_tables WHERE qr_token = ?",
+      [data.qrToken]
+    );
+    if (tables.length) {
+      restaurantId = tables[0].restaurantId;
+      if (!tableId) tableId = tables[0].id;
+    }
+  }
+
+  if (!restaurantId && data.tableId) {
+    const [tables] = await db.query(
+      "SELECT id, restaurant_id AS restaurantId FROM restaurant_tables WHERE id = ?",
+      [data.tableId]
+    );
+    if (tables.length) {
+      restaurantId = tables[0].restaurantId;
+    }
+  }
+
+  if (!restaurantId && data.roomId) {
+    const [rooms] = await db.query(
+      "SELECT id, restaurant_id AS restaurantId FROM guest_rooms WHERE id = ?",
+      [data.roomId]
+    );
+    if (rooms.length) {
+      restaurantId = rooms[0].restaurantId;
+    }
+  }
+
+  if (!restaurantId) {
+    const [tables] = await db.query("SELECT restaurant_id AS restaurantId FROM restaurant_tables LIMIT 1");
+    if (tables.length) {
+      restaurantId = tables[0].restaurantId;
+    }
+  }
+
+  if (!restaurantId) {
+    const error = new Error("Invalid QR code or dining token");
     error.status = 404;
     throw error;
   }
 
-  const table = tables[0];
-  return orderRepo.createOrder(table.restaurantId, {
+  return orderRepo.createOrder(restaurantId, {
     ...data,
-    tableId: table.id,
+    tableId: tableId,
   });
 }
 
