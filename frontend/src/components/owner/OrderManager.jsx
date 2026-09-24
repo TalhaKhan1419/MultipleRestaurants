@@ -104,17 +104,20 @@ export default function OrderManager({ onSelectOrder, refreshKey = 0 }) {
       bc.onmessage = (event) => {
         if (event.data?.type === "NEW_ORDER" && event.data?.order) {
           const ord = event.data.order;
-          if (!hasBeenAlerted(ord)) {
-            triggerOrderAlertOnce(ord, true);
-            setConfirmedOrderAlert(ord);
-          }
+          setConfirmedOrderAlert(ord);
           fetchOrdersAndTables();
         }
       };
     } catch (e) {}
 
     const handleStorage = (e) => {
-      if (e.key === "last_pos_order_ts" || e.key === "last_pos_order_data") {
+      if (e.key === "last_pos_order_data" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && parsed.id) setConfirmedOrderAlert(parsed);
+        } catch (err) {}
+        fetchOrdersAndTables();
+      } else if (e.key === "last_pos_order_ts") {
         fetchOrdersAndTables();
       }
     };

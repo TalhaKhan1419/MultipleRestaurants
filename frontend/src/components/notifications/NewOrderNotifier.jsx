@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { playOrderChime } from "../../utils/audioAlert";
+import { api } from "../../services/api";
 import {
   Bell,
   UtensilsCrossed,
   X,
   ChevronRight,
-  Flame,
-  Clock,
   CheckCircle,
+  Loader2,
 } from "lucide-react";
 
 export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountChange }) {
   const [activeAlert, setActiveAlert] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [accepting, setAccepting] = useState(false);
+  const [accepted, setAccepted] = useState(false);
   const seenOrderIdsRef = useRef(new Set());
   const isInitializedRef = useRef(false);
 
@@ -27,6 +29,7 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
 
     // Trigger Popup alert
     setActiveAlert(order);
+    setAccepted(false);
     setPendingCount((prev) => prev + 1);
   }, []);
 
@@ -86,15 +89,45 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
     };
   }, [handleNewOrderReceived]);
 
-  // Auto-dismiss alert popup after 12 seconds
+  // Auto-dismiss alert popup after 16 seconds if not interacted with
   useEffect(() => {
-    if (!activeAlert) return;
+    if (!activeAlert || accepted) return;
     const timer = setTimeout(() => {
       setActiveAlert(null);
-    }, 12000);
+    }, 16000);
 
     return () => clearTimeout(timer);
-  }, [activeAlert]);
+  }, [activeAlert, accepted]);
+
+  const handleAcceptOrder = async (e) => {
+    e.stopPropagation();
+    if (!activeAlert || !activeAlert.id || accepting) return;
+    setAccepting(true);
+    try {
+      // 1. Confirm order and move kitchen status to preparing
+      await api.owner.updateOrderStatus(activeAlert.id, "confirmed");
+      await api.owner.updateKitchenStatus(activeAlert.id, "preparing");
+
+      // Broadcast event so KOT and orders tabs update instantly
+      try {
+        const bc = new BroadcastChannel("pos_orders");
+        bc.postMessage({ type: "KOT_UPDATE", ticketId: activeAlert.id, newStatus: "preparing" });
+        bc.close();
+      } catch (err) {}
+
+      localStorage.setItem("last_pos_order_ts", Date.now().toString());
+
+      setAccepted(true);
+      setTimeout(() => {
+        setActiveAlert(null);
+        setAccepted(false);
+      }, 1000);
+    } catch (err) {
+      alert("Failed to accept order: " + (err.message || "Error"));
+    } finally {
+      setAccepting(false);
+    }
+  };
 
   if (!activeAlert) return null;
 
@@ -147,7 +180,7 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
               e.stopPropagation();
               setActiveAlert(null);
             }}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
             title="Dismiss"
           >
             <X className="w-4 h-4" />
@@ -165,25 +198,50 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
               ₹{Number(activeAlert.totalAmount || 0).toFixed(2)}
             </span>
           </div>
-          <div className="text-[11px] text-slate-600 truncate">
+          <div className="text-[11px] text-slate-600 truncate font-medium">
             {itemsSummary}
             {hasMoreItems && ` +${items.length - 2} more`}
           </div>
         </div>
 
         {/* Action button row */}
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-[11px] text-orange-600 font-semibold flex items-center gap-1 group-hover:underline">
-            <span>Click to view order details & send to kitchen</span>
-            <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-          </span>
+        <div className="flex items-center justify-between pt-1 gap-2">
+          {accepted ? (
+            <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 w-full justify-center">
+              <CheckCircle className="w-4 h-4" />
+              <span>Order Accepted & Sent to KOT!</span>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleAcceptOrder}
+                disabled={accepting}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-extrabold text-xs py-2 px-3 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {accepting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-4 h-4" />
+                )}
+                <span>Accept Order</span>
+              </button>
 
-          <span className="text-[10px] text-slate-400 font-medium">
-            Tap to open
-          </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenOrder) onOpenOrder(activeAlert);
+                  setActiveAlert(null);
+                }}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
+              >
+                <span>View Details</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
-

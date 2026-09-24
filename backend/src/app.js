@@ -24,6 +24,7 @@ app.use("/api/tables", require("./routes/table.routes"));
 app.use("/api/rooms", require("./routes/room.routes"));
 app.use("/api/orders", require("./routes/order.routes"));
 app.use("/api/inventory", require("./routes/inventory.routes"));
+app.use("/api/reports", require("./routes/report.routes"));
 app.use(notFound);
 app.use(errorHandler);
 

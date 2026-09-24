@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { api } from "../../services/api";
 import KOTConfirmationNotifier from "./KOTConfirmationNotifier";
+import { playOrderChime } from "../../utils/audioAlert";
 import { markOrdersAsSeen, hasBeenAlerted, triggerOrderAlertOnce } from "../../utils/orderAlertTracker";
 import {
   Printer,
@@ -48,7 +49,9 @@ export default function KOTManager() {
           markOrdersAsSeen(data);
         } else {
           const newlyConfirmed = data.find((order) => {
-            return order.kitchenStatus === "confirmed" && !hasBeenAlerted(order);
+            const isNewId = !orderStateRef.current.has(order.id);
+            const isConfirmedOrPending = order.kitchenStatus === "confirmed" || order.kitchenStatus === "pending";
+            return isConfirmedOrPending && (isNewId || !hasBeenAlerted(order));
           });
           if (newlyConfirmed) {
             triggerOrderAlertOnce(newlyConfirmed, true);
@@ -78,14 +81,28 @@ export default function KOTManager() {
     try {
       bc = new BroadcastChannel("pos_orders");
       bc.onmessage = (event) => {
-        if (event.data?.type === "NEW_ORDER" || event.data?.type === "KOT_UPDATE") {
+        if (event.data?.type === "NEW_ORDER" && event.data?.order) {
+          const newOrd = event.data.order;
+          setConfirmedOrderAlert(newOrd);
+          playOrderChime();
+          fetchOrders();
+        } else if (event.data?.type === "NEW_ORDER" || event.data?.type === "KOT_UPDATE") {
           fetchOrders();
         }
       };
     } catch (e) {}
 
     const handleStorage = (e) => {
-      if (e.key === "last_pos_order_ts" || e.key === "last_pos_order_data") {
+      if (e.key === "last_pos_order_data" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && parsed.id) {
+            setConfirmedOrderAlert(parsed);
+            playOrderChime();
+          }
+        } catch (err) {}
+        fetchOrders();
+      } else if (e.key === "last_pos_order_ts") {
         fetchOrders();
       }
     };
@@ -138,6 +155,12 @@ export default function KOTManager() {
   const handleUpdateKOTStatus = async (ticketId, newStatus) => {
     try {
       await api.owner.updateKitchenStatus(ticketId, newStatus);
+      try {
+        const bc = new BroadcastChannel("pos_orders");
+        bc.postMessage({ type: "KOT_UPDATE", ticketId, newStatus });
+        bc.close();
+        localStorage.setItem("last_pos_order_ts", String(Date.now()));
+      } catch (e) {}
       fetchOrders();
     } catch (err) {
       alert("Failed to update status: " + (err.message || "Error"));

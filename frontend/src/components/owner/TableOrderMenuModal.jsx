@@ -305,12 +305,9 @@ export default function TableOrderMenuModal({
 
       const result = await api.owner.createOrder(payload);
 
-      // Trigger order audio chime & notification once
       try {
-        triggerOrderAlertOnce(result, true);
-      } catch (e) {}
-
-      try {
+        localStorage.setItem("last_pos_order_data", JSON.stringify(result));
+        localStorage.setItem("last_pos_order_ts", String(Date.now()));
         const bc = new BroadcastChannel("pos_orders");
         bc.postMessage({ type: "NEW_ORDER", order: result });
         bc.close();

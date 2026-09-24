@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS expenses (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  restaurant_id BIGINT UNSIGNED NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+  category VARCHAR(100) NOT NULL DEFAULT 'General',
+  expense_date DATE NOT NULL,
+  notes TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_expenses_restaurant FOREIGN KEY (restaurant_id) REFERENCES restaurants (id) ON DELETE CASCADE,
+  INDEX idx_expenses_restaurant_date (restaurant_id, expense_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

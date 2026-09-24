@@ -147,6 +147,38 @@ export default function TableManager({ initialMode = "tables", initialFilter = "
   useEffect(() => {
     fetchTables();
     fetchRooms();
+
+    let bc;
+    try {
+      bc = new BroadcastChannel("pos_orders");
+      bc.onmessage = (event) => {
+        if (event.data?.type === "NEW_ORDER") {
+          fetchTables();
+          if (event.data?.order) {
+            setOrderToastAlert(event.data.order);
+          }
+        }
+      };
+    } catch (e) {}
+
+    const handleStorage = (e) => {
+      if (e.key === "last_pos_order_data" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && parsed.id) setOrderToastAlert(parsed);
+        } catch (err) {}
+        fetchTables();
+      } else if (e.key === "last_pos_order_ts") {
+        fetchTables();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   const handleRoomCardClick = (room) => {
@@ -1307,7 +1339,7 @@ export default function TableManager({ initialMode = "tables", initialFilter = "
         initialCustomerPhone={initialCustomerPhone}
         onOrderPlaced={(newOrd) => {
           fetchTables();
-          if (newOrd && !hasBeenAlerted(newOrd)) {
+          if (newOrd) {
             setOrderToastAlert(newOrd);
           }
         }}

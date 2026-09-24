@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LoginView from "./components/auth/LoginView";
 import Navbar from "./components/layout/Navbar";
@@ -7,6 +7,7 @@ import InventoryManager from "./components/inventory/InventoryManager";
 
 // Owner Views
 import OwnerDashboard from "./components/owner/OwnerDashboard";
+import ReportsDashboard from "./components/owner/ReportsDashboard";
 import MenuManager from "./components/owner/MenuManager";
 import CategoryManager from "./components/owner/CategoryManager";
 import TableManager from "./components/owner/TableManager";
@@ -77,34 +78,64 @@ function MainApp() {
     return new Date(order.createdAt).toDateString() === new Date().toDateString();
   };
 
-  // Fetch initial live orders state once on auth load without continuous background polling.
+  // Fetch & sync live orders and pending KOT count in real time
+  const fetchLiveOrders = useCallback(async () => {
+    if (!isAuthenticated || role === "super_admin") return;
+    try {
+      const orders = await api.owner.getOrders({ limit: 100 });
+      if (Array.isArray(orders)) {
+        setLiveOrders(orders);
+        const activeKots = orders.filter(
+          (order) =>
+            order.kitchenStatus !== "completed" &&
+            order.kitchenStatus !== "cancelled" &&
+            isCreatedToday(order)
+        );
+        setPendingKotCount(activeKots.length);
+      }
+    } catch (_) {
+      // Silent catch
+    }
+  }, [isAuthenticated, role]);
+
   useEffect(() => {
     if (!isAuthenticated || role === "super_admin") {
       setPendingKotCount(0);
       setLiveOrders([]);
-      return undefined;
+      return;
     }
 
-    let isMounted = true;
-    const fetchInitialLiveOrders = async () => {
-      try {
-        const orders = await api.owner.getOrders({ limit: 100 });
-        if (isMounted && Array.isArray(orders)) {
-          setLiveOrders(orders);
-          setPendingKotCount(
-            orders.filter((order) => order.kitchenStatus === "confirmed" && isCreatedToday(order)).length
-          );
+    fetchLiveOrders();
+
+    // 4-second periodic check to keep counts synced across windows
+    const interval = setInterval(() => {
+      fetchLiveOrders();
+    }, 4000);
+
+    let bc;
+    try {
+      bc = new BroadcastChannel("pos_orders");
+      bc.onmessage = (event) => {
+        if (event.data?.type === "NEW_ORDER" || event.data?.type === "KOT_UPDATE") {
+          fetchLiveOrders();
         }
-      } catch (_) {
-        // Silent catch for initial load
+      };
+    } catch (e) {}
+
+    const handleStorage = (e) => {
+      if (e.key === "last_pos_order_ts" || e.key === "last_pos_order_data") {
+        fetchLiveOrders();
       }
     };
 
-    fetchInitialLiveOrders();
+    window.addEventListener("storage", handleStorage);
+
     return () => {
-      isMounted = false;
+      clearInterval(interval);
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
     };
-  }, [isAuthenticated, role]);
+  }, [isAuthenticated, role, fetchLiveOrders]);
 
   if (isCustomerRoute || scannedQrToken) {
     return (
@@ -231,7 +262,7 @@ function MainApp() {
         {activeTab === "tables" && (
           <TableManager initialMode="tables" />
         )}
-        {activeTab === "reports" && <OwnerDashboard onNavigate={setActiveTab} />}
+        {activeTab === "reports" && <ReportsDashboard />}
         {activeTab === "settings" && <RestaurantSettings />}
 
         {/* Super Admin Pages */}

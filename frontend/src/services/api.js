@@ -163,5 +163,19 @@ export const api = {
     confirmPayment: (orderId, qrToken, paymentMethod) =>
       request(`/public/orders/${orderId}/payment`, { method: "POST", body: { qrToken, paymentMethod } }),
   },
+  // Reports API
+  reports: {
+    getDashboard: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/reports/dashboard${qs ? `?${qs}` : ""}`);
+    },
+    getExpenses: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/reports/expenses${qs ? `?${qs}` : ""}`);
+    },
+    createExpense: (data) => request("/reports/expenses", { method: "POST", body: data }),
+    deleteExpense: (id) => request(`/reports/expenses/${id}`, { method: "DELETE" }),
+  },
 };
+
 
