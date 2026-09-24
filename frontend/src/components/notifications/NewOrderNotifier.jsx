@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from "react";
-import { api } from "../../services/api";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { playOrderChime } from "../../utils/audioAlert";
 import {
   Bell,
@@ -11,13 +10,13 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-export default function NewOrderNotifier({ onOpenOrder, onPendingCountChange }) {
+export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountChange }) {
   const [activeAlert, setActiveAlert] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
   const seenOrderIdsRef = useRef(new Set());
   const isInitializedRef = useRef(false);
 
-  const handleNewOrderReceived = (order) => {
+  const handleNewOrderReceived = useCallback((order) => {
     if (!order || !order.id) return;
     if (seenOrderIdsRef.current.has(order.id)) return;
 
@@ -29,7 +28,7 @@ export default function NewOrderNotifier({ onOpenOrder, onPendingCountChange }) 
     // Trigger Popup alert
     setActiveAlert(order);
     setPendingCount((prev) => prev + 1);
-  };
+  }, []);
 
   // Safely notify parent component of pending count changes after React render phase
   useEffect(() => {
@@ -38,34 +37,27 @@ export default function NewOrderNotifier({ onOpenOrder, onPendingCountChange }) 
     }
   }, [pendingCount, onPendingCountChange]);
 
-
-  // 1. Initial fetch to populate already existing orders (so they don't trigger alerts on refresh)
+  // Process live orders passed from central polling loop in App.jsx
   useEffect(() => {
-    let isMounted = true;
+    if (!orders || !Array.isArray(orders) || orders.length === 0) return;
 
-    async function initExistingOrders() {
-      try {
-        const orders = await api.owner.getOrders({ limit: 20 });
-        if (orders && Array.isArray(orders)) {
-          orders.forEach((o) => {
-            if (o?.id) seenOrderIdsRef.current.add(o.id);
-          });
-        }
-      } catch (err) {
-        console.warn("Could not fetch initial orders for notifier:", err);
-      } finally {
-        if (isMounted) isInitializedRef.current = true;
-      }
+    if (!isInitializedRef.current) {
+      orders.forEach((o) => {
+        if (o?.id) seenOrderIdsRef.current.add(o.id);
+      });
+      isInitializedRef.current = true;
+      return;
     }
 
-    initExistingOrders();
+    for (const ord of orders) {
+      if (ord?.id && !seenOrderIdsRef.current.has(ord.id)) {
+        handleNewOrderReceived(ord);
+        break; // Trigger alert for newest order
+      }
+    }
+  }, [orders, handleNewOrderReceived]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // 2. Setup BroadcastChannel and storage listeners for instant local tab detection
+  // Setup BroadcastChannel and storage listeners for instant local tab detection
   useEffect(() => {
     let bc = null;
     try {
@@ -92,30 +84,7 @@ export default function NewOrderNotifier({ onOpenOrder, onPendingCountChange }) 
       if (bc) bc.close();
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, []);
-
-  // 3. Periodic polling every 3 seconds for real-time backend updates across different devices
-  useEffect(() => {
-    const pollInterval = setInterval(async () => {
-      if (!isInitializedRef.current) return;
-      try {
-        const recentOrders = await api.owner.getOrders({ limit: 10 });
-        if (recentOrders && Array.isArray(recentOrders)) {
-          // Identify any orders not seen yet
-          for (const ord of recentOrders) {
-            if (ord?.id && !seenOrderIdsRef.current.has(ord.id)) {
-              handleNewOrderReceived(ord);
-              break; // Trigger alert for newest order
-            }
-          }
-        }
-      } catch (err) {
-        // Silent poll error (e.g. temporary network blip)
-      }
-    }, 3000);
-
-    return () => clearInterval(pollInterval);
-  }, []);
+  }, [handleNewOrderReceived]);
 
   // Auto-dismiss alert popup after 12 seconds
   useEffect(() => {

@@ -5,6 +5,7 @@ import CustomerDetailsModal from "./CustomerDetailsModal";
 import BillingModal from "./BillingModal";
 import KOTConfirmationNotifier from "./KOTConfirmationNotifier";
 import { combineTableOrders } from "../../utils/orderUtils";
+import { markOrdersAsSeen, hasBeenAlerted, triggerOrderAlertOnce } from "../../utils/orderAlertTracker";
 import {
   ShoppingBag,
   Plus,
@@ -71,13 +72,13 @@ export default function OrderManager({ onSelectOrder, refreshKey = 0 }) {
         if (isInitialLoadRef.current) {
           isInitialLoadRef.current = false;
           knownOrderIdsRef.current = currentIds;
-          const waitingForKitchen = currentOrders.find((order) => order.kitchenStatus === "confirmed");
-          if (waitingForKitchen) setConfirmedOrderAlert(waitingForKitchen);
+          markOrdersAsSeen(currentOrders);
         } else {
           const newOrder = currentOrders.find(
-            (o) => !knownOrderIdsRef.current.has(o.id) && o.status !== "cancelled"
+            (o) => o.kitchenStatus === "confirmed" && !hasBeenAlerted(o)
           );
           if (newOrder) {
+            triggerOrderAlertOnce(newOrder, true);
             setConfirmedOrderAlert(newOrder);
           }
           knownOrderIdsRef.current = currentIds;
@@ -96,14 +97,17 @@ export default function OrderManager({ onSelectOrder, refreshKey = 0 }) {
   useEffect(() => {
     setLoading(true);
     fetchOrdersAndTables();
-    const interval = setInterval(fetchOrdersAndTables, 4000);
 
     let bc;
     try {
       bc = new BroadcastChannel("pos_orders");
       bc.onmessage = (event) => {
         if (event.data?.type === "NEW_ORDER" && event.data?.order) {
-          setConfirmedOrderAlert(event.data.order);
+          const ord = event.data.order;
+          if (!hasBeenAlerted(ord)) {
+            triggerOrderAlertOnce(ord, true);
+            setConfirmedOrderAlert(ord);
+          }
           fetchOrdersAndTables();
         }
       };
@@ -111,17 +115,12 @@ export default function OrderManager({ onSelectOrder, refreshKey = 0 }) {
 
     const handleStorage = (e) => {
       if (e.key === "last_pos_order_ts" || e.key === "last_pos_order_data") {
-        try {
-          const raw = localStorage.getItem("last_pos_order_data");
-          if (raw) setConfirmedOrderAlert(JSON.parse(raw));
-        } catch (err) {}
         fetchOrdersAndTables();
       }
     };
 
     window.addEventListener("storage", handleStorage);
     return () => {
-      clearInterval(interval);
       if (bc) bc.close();
       window.removeEventListener("storage", handleStorage);
     };
@@ -191,17 +190,14 @@ export default function OrderManager({ onSelectOrder, refreshKey = 0 }) {
     return map;
   }, [tables, orders]);
 
-  // Sorted tables for Order view (occupied tables first, then available)
+  // Strictly filter & sort occupied tables for Order view
   const displayTables = useMemo(() => {
-    return [...tables].sort((a, b) => {
-      const dataA = tableOrderMap.get(a.id) || { unpaidOrders: [] };
-      const dataB = tableOrderMap.get(b.id) || { unpaidOrders: [] };
-      const isOccA = a.status === "occupied" || dataA.unpaidOrders.length > 0;
-      const isOccB = b.status === "occupied" || dataB.unpaidOrders.length > 0;
-      if (isOccA && !isOccB) return -1;
-      if (!isOccA && isOccB) return 1;
-      return Number(a.tableNumber) - Number(b.tableNumber);
-    });
+    return tables
+      .filter((table) => {
+        const data = tableOrderMap.get(table.id) || { unpaidOrders: [] };
+        return table.status === "occupied" || data.unpaidOrders.length > 0;
+      })
+      .sort((a, b) => Number(a.tableNumber) - Number(b.tableNumber));
   }, [tables, tableOrderMap]);
 
   const statusColors = {
@@ -305,14 +301,26 @@ export default function OrderManager({ onSelectOrder, refreshKey = 0 }) {
       {/* VIEW MODE 1: TABLE FLOOR VIEW */}
       {viewMode === "table_view" && (
         displayTables.length === 0 ? (
-          <div className="py-12 px-4 rounded-2xl bg-white border border-slate-200 text-center flex flex-col items-center justify-center gap-2 shadow-2xs">
-            <div className="w-12 h-12 rounded-2xl bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-500 shadow-2xs">
+          <div className="py-12 px-4 rounded-2xl bg-white border border-slate-200 text-center flex flex-col items-center justify-center gap-3 shadow-2xs">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-2xs">
               <UtensilsCrossed className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-slate-800">No Dining Tables Configured</h3>
-            <p className="text-xs text-slate-500 max-w-sm">
-              Go to Table Manager to add dining tables for your restaurant.
-            </p>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">No Active Occupied Tables</h3>
+              <p className="text-xs text-slate-500 max-w-sm mt-1">
+                All tables are currently clear and available. Click '+ Take Order' to seat guests and take a new order.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => handleOpenTableMenu(null)}
+                className="px-4 py-2 rounded-xl bg-orange-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all hover:bg-orange-600 cursor-pointer shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Take Order</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-5 gap-2">

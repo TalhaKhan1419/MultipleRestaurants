@@ -54,6 +54,7 @@ export default function InventoryManager() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [selectedUnit, setSelectedUnit] = useState("");
@@ -61,6 +62,19 @@ export default function InventoryManager() {
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [historyFilterType, setHistoryFilterType] = useState("");
   const [historySearch, setHistorySearch] = useState("");
+  const [debouncedHistorySearch, setDebouncedHistorySearch] = useState("");
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Debounce history search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedHistorySearch(historySearch), 300);
+    return () => clearTimeout(timer);
+  }, [historySearch]);
 
   // Loading & Error
   const [loading, setLoading] = useState(true);
@@ -137,7 +151,7 @@ export default function InventoryManager() {
       const res = await api.inventory.getItems({
         page,
         limit: 15,
-        search,
+        search: debouncedSearch,
         categoryId: selectedCategory,
         status: selectedStatus,
         unit: selectedUnit,
@@ -152,7 +166,7 @@ export default function InventoryManager() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, selectedCategory, selectedStatus, selectedUnit]);
+  }, [page, debouncedSearch, selectedCategory, selectedStatus, selectedUnit]);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -160,7 +174,7 @@ export default function InventoryManager() {
         page: historyPage,
         limit: 50,
         transactionType: historyFilterType,
-        search: historySearch,
+        search: debouncedHistorySearch,
       });
       const txList = res?.transactions || (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
       setHistory(txList);
@@ -168,11 +182,13 @@ export default function InventoryManager() {
         setHistoryTotalPages(res.pagination.totalPages || 1);
       }
     } catch (_) {}
-  }, [historyPage, historyFilterType, historySearch]);
+  }, [historyPage, historyFilterType, debouncedHistorySearch]);
 
   useEffect(() => {
-    loadSummary();
-    loadCategoriesAndSuppliers();
+    Promise.all([
+      loadSummary(),
+      loadCategoriesAndSuppliers(),
+    ]);
   }, []);
 
   useEffect(() => {

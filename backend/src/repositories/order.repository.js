@@ -1,6 +1,34 @@
 const db = require("../config/database");
 
 async function findAll(restaurantId, filters = {}) {
+  // Auto-cancel any uncompleted KOTs/orders from previous days (older than today)
+  try {
+    await db.query(
+      `UPDATE orders 
+       SET status = 'cancelled', kitchen_status = 'cancelled' 
+       WHERE restaurant_id = ? 
+         AND kitchen_status IN ('confirmed', 'pending', 'preparing') 
+         AND status <> 'completed'
+         AND DATE(created_at) < CURRENT_DATE()`,
+      [restaurantId]
+    );
+    await db.query(
+      `UPDATE restaurant_tables rt
+       SET rt.status = 'available'
+       WHERE rt.restaurant_id = ?
+         AND rt.status = 'occupied'
+         AND NOT EXISTS (
+           SELECT 1 FROM orders o 
+           WHERE o.table_id = rt.id 
+             AND o.restaurant_id = rt.restaurant_id 
+             AND o.status NOT IN ('cancelled', 'completed')
+         )`,
+      [restaurantId]
+    );
+  } catch (err) {
+    console.warn("Stale KOT auto-cleanup warning:", err.message);
+  }
+
   let query = `
     SELECT o.id, o.restaurant_id AS restaurantId, o.table_id AS tableId,
            o.user_id AS userId, o.order_number AS orderNumber, o.status, o.kitchen_status AS kitchenStatus,
@@ -185,7 +213,7 @@ async function findOrCreateUser(connection, restaurantId, fullName, phone) {
   return result.insertId;
 }
 
-async function createOrder(restaurantId, { tableId, customerName, customerPhone, orderType = "dine_in", discountAmount = 0, paymentMethod = "unassigned", items, notes }) {
+async function createOrder(restaurantId, { tableId, customerName, customerPhone, orderType = "dine_in", discountAmount = 0, paymentMethod = "unassigned", items, notes, isPublic = false }) {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -227,9 +255,8 @@ async function createOrder(restaurantId, { tableId, customerName, customerPhone,
     const taxAmount = Number((taxableAmount * 0.05).toFixed(2)); // 5% Standard VAT
     const totalAmount = Number((taxableAmount + taxAmount).toFixed(2));
 
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const orderNumber = `ORD-${dateStr}-${randomSuffix}`;
+    let existingOrderId = null;
+    let existingNotes = null;
 
     if (tableId) {
       const [tableRows] = await connection.query(
@@ -242,22 +269,92 @@ async function createOrder(restaurantId, { tableId, customerName, customerPhone,
       if (tableRows[0].status === "unavailable") {
         throw new Error(`Table ${tableRows[0].tableNumber} is currently unavailable for ordering.`);
       }
+
+      // Check if there is already an active (unpaid & incomplete) order for this table
+      const [activeOrders] = await connection.query(
+        `SELECT id, notes FROM orders
+         WHERE table_id = ? AND restaurant_id = ?
+           AND status NOT IN ('cancelled', 'completed')
+           AND (payment_status IS NULL OR payment_status <> 'paid')
+         ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+        [tableId, restaurantId]
+      );
+
+      // Validate stale table availability for public customer menu orders
+      if (isPublic && (tableRows[0].status === "occupied" || activeOrders.length > 0)) {
+        throw new Error(`Table ${tableRows[0].tableNumber} is currently occupied. Please select an available table.`);
+      }
+
+      if (activeOrders.length) {
+        existingOrderId = activeOrders[0].id;
+        existingNotes = activeOrders[0].notes;
+      }
     }
 
-    const [orderResult] = await connection.query(
-      `INSERT INTO orders (restaurant_id, table_id, user_id, order_number, status, kitchen_status, order_type, subtotal, discount_amount, tax_amount, total_amount, payment_status, payment_method, notes)
-       VALUES (?, ?, ?, ?, 'confirmed', 'confirmed', ?, ?, ?, ?, ?, 'unpaid', ?, ?)`,
-      [restaurantId, tableId || null, userId, orderNumber, orderType, subtotal, discount, taxAmount, totalAmount, paymentMethod, notes || null]
-    );
+    let finalOrderId;
 
-    const orderId = orderResult.insertId;
+    if (existingOrderId) {
+      finalOrderId = existingOrderId;
 
-    for (const oi of orderItemsToInsert) {
-      await connection.query(
-        `INSERT INTO order_items (order_id, restaurant_id, menu_item_id, item_name, unit_price, quantity, line_total, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [orderId, restaurantId, oi.menuItemId, oi.itemName, oi.unitPrice, oi.quantity, oi.lineTotal, oi.notes]
+      // Insert new items into existing order
+      for (const oi of orderItemsToInsert) {
+        await connection.query(
+          `INSERT INTO order_items (order_id, restaurant_id, menu_item_id, item_name, unit_price, quantity, line_total, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [finalOrderId, restaurantId, oi.menuItemId, oi.itemName, oi.unitPrice, oi.quantity, oi.lineTotal, oi.notes]
+        );
+      }
+
+      // Recalculate total subtotal across all items for this order
+      const [sumRows] = await connection.query(
+        "SELECT SUM(line_total) AS totalSubtotal FROM order_items WHERE order_id = ?",
+        [finalOrderId]
       );
+      const combinedSubtotal = Number(sumRows[0].totalSubtotal || 0);
+      const combinedDiscount = Math.min(Number(discountAmount || 0), combinedSubtotal);
+      const combinedTaxable = Math.max(0, combinedSubtotal - combinedDiscount);
+      const combinedTax = Number((combinedTaxable * 0.05).toFixed(2));
+      const combinedTotal = Number((combinedTaxable + combinedTax).toFixed(2));
+
+      let mergedNotes = existingNotes;
+      if (notes && notes.trim()) {
+        mergedNotes = mergedNotes ? `${mergedNotes}; ${notes.trim()}` : notes.trim();
+      }
+
+      // Update existing order with recalculated totals and set kitchen_status to 'confirmed' for kitchen notification
+      await connection.query(
+        `UPDATE orders
+         SET subtotal = ?,
+             discount_amount = ?,
+             tax_amount = ?,
+             total_amount = ?,
+             status = CASE WHEN status = 'completed' OR status = 'cancelled' THEN 'confirmed' ELSE status END,
+             kitchen_status = 'confirmed',
+             notes = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND restaurant_id = ?`,
+        [combinedSubtotal, combinedDiscount, combinedTax, combinedTotal, mergedNotes || null, finalOrderId, restaurantId]
+      );
+    } else {
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const orderNumber = `ORD-${dateStr}-${randomSuffix}`;
+
+      const [orderResult] = await connection.query(
+        `INSERT INTO orders (restaurant_id, table_id, user_id, order_number, status, kitchen_status, order_type, subtotal, discount_amount, tax_amount, total_amount, payment_status, payment_method, notes)
+         VALUES (?, ?, ?, ?, 'confirmed', 'confirmed', ?, ?, ?, ?, ?, 'unpaid', ?, ?)`,
+        [restaurantId, tableId || null, userId, orderNumber, orderType, subtotal, discount, taxAmount, totalAmount, paymentMethod, notes || null]
+      );
+
+      finalOrderId = orderResult.insertId;
+
+      for (const oi of orderItemsToInsert) {
+        await connection.query(
+          `INSERT INTO order_items (order_id, restaurant_id, menu_item_id, item_name, unit_price, quantity, line_total, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [finalOrderId, restaurantId, oi.menuItemId, oi.itemName, oi.unitPrice, oi.quantity, oi.lineTotal, oi.notes]
+        );
+      }
     }
 
     if (tableId) {
@@ -268,7 +365,7 @@ async function createOrder(restaurantId, { tableId, customerName, customerPhone,
     }
 
     await connection.commit();
-    return findById(restaurantId, orderId);
+    return findById(restaurantId, finalOrderId);
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -367,7 +464,7 @@ async function updatePaymentStatus(restaurantId, id, paymentStatus, paymentMetho
     const tableId = orders[0].tableId;
     if (paymentStatus === "paid" && tableId) {
       const [remainingUnpaid] = await connection.query(
-        "SELECT COUNT(*) AS count FROM orders WHERE table_id = ? AND restaurant_id = ? AND status NOT IN ('cancelled', 'completed') AND (payment_status IS NULL OR payment_status <> 'paid')",
+        "SELECT COUNT(*) AS count FROM orders WHERE table_id = ? AND restaurant_id = ? AND status <> 'cancelled' AND (payment_status IS NULL OR payment_status <> 'paid')",
         [tableId, restaurantId]
       );
       if (remainingUnpaid[0].count === 0) {
@@ -475,8 +572,8 @@ async function getDashboardStats(restaurantId) {
 
   const [tableStats] = await db.query(
     `SELECT COUNT(*) AS totalTables,
-            COALESCE(SUM(CASE WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) > 0 OR rt.status = 'occupied' THEN 1 ELSE 0 END), 0) AS occupiedTables,
-            COALESCE(SUM(CASE WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) = 0 AND rt.status <> 'occupied' THEN 1 ELSE 0 END), 0) AS availableTables
+            COALESCE(SUM(CASE WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status <> 'cancelled' AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) > 0 OR rt.status = 'occupied' THEN 1 ELSE 0 END), 0) AS occupiedTables,
+            COALESCE(SUM(CASE WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status <> 'cancelled' AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) = 0 AND rt.status <> 'occupied' THEN 1 ELSE 0 END), 0) AS availableTables
      FROM restaurant_tables rt
      WHERE rt.restaurant_id = ?`,
     [restaurantId]

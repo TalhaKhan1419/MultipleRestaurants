@@ -157,8 +157,10 @@ async function findPublicMenu(qrToken) {
   let [tables] = await db.query(
     `SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity,
             CASE
-              WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) = 0 THEN 'available'
-              ELSE rt.status
+              WHEN rt.status = 'unavailable' THEN 'unavailable'
+              WHEN rt.status = 'occupied' THEN 'occupied'
+              WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status <> 'cancelled' AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) > 0 THEN 'occupied'
+              ELSE 'available'
             END AS status,
             rt.qr_token AS qrToken, r.id AS restaurantId, r.name AS restaurantName
      FROM restaurant_tables rt
@@ -173,8 +175,10 @@ async function findPublicMenu(qrToken) {
     [tables] = await db.query(
       `SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity,
               CASE
-                WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) = 0 THEN 'available'
-                ELSE rt.status
+                WHEN rt.status = 'unavailable' THEN 'unavailable'
+                WHEN rt.status = 'occupied' THEN 'occupied'
+                WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status <> 'cancelled' AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) > 0 THEN 'occupied'
+                ELSE 'available'
               END AS status,
               rt.qr_token AS qrToken, r.id AS restaurantId, r.name AS restaurantName
        FROM restaurant_tables rt
@@ -190,8 +194,10 @@ async function findPublicMenu(qrToken) {
     db.query(
       `SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity,
               CASE
-                WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status NOT IN ('cancelled', 'completed') AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) = 0 THEN 'available'
-                ELSE rt.status
+                WHEN rt.status = 'unavailable' THEN 'unavailable'
+                WHEN rt.status = 'occupied' THEN 'occupied'
+                WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status <> 'cancelled' AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) > 0 THEN 'occupied'
+                ELSE 'available'
               END AS status,
               rt.qr_token AS qrToken
        FROM restaurant_tables rt

@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { api } from "../../services/api";
 import CustomerDetailsModal from "./CustomerDetailsModal";
 import TableOrderMenuModal from "./TableOrderMenuModal";
+import KOTConfirmationNotifier from "./KOTConfirmationNotifier";
+import { hasBeenAlerted } from "../../utils/orderAlertTracker";
 import {
   Plus,
   QrCode,
@@ -43,6 +45,7 @@ export default function TableManager({ initialMode = "tables", initialFilter = "
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [orderToastAlert, setOrderToastAlert] = useState(null);
 
   // Guest Rooms State
   const [rooms, setRooms] = useState([]);
@@ -1302,7 +1305,19 @@ export default function TableManager({ initialMode = "tables", initialFilter = "
         allTables={tables}
         initialCustomerName={initialCustomerName}
         initialCustomerPhone={initialCustomerPhone}
-        onOrderPlaced={() => fetchTables()}
+        onOrderPlaced={(newOrd) => {
+          fetchTables();
+          if (newOrd && !hasBeenAlerted(newOrd)) {
+            setOrderToastAlert(newOrd);
+          }
+        }}
+      />
+
+      {/* Order Alert Banner */}
+      <KOTConfirmationNotifier
+        order={orderToastAlert}
+        onStartCooking={() => setOrderToastAlert(null)}
+        onDismiss={() => setOrderToastAlert(null)}
       />
     </div>
   );

@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { BellRing, ChefHat, Flame, X } from "lucide-react";
-import { playOrderChime } from "../../utils/audioAlert";
+import { triggerOrderAlertOnce } from "../../utils/orderAlertTracker";
 
 export default function KOTConfirmationNotifier({ order, onStartCooking, onDismiss }) {
   useEffect(() => {
-    if (order) playOrderChime();
+    if (order) {
+      triggerOrderAlertOnce(order, true);
+    }
   }, [order]);
 
   if (!order) return null;

@@ -102,7 +102,7 @@ export default function CustomerMenuView({ qrToken, onClose }) {
             }
           : null);
 
-      if (matched) {
+      if (matched && (matched.status || "").toLowerCase() === "available") {
         setSelectedTable({
           tableId: matched.tableId || matched.id,
           tableNumber: matched.tableNumber,
@@ -112,7 +112,7 @@ export default function CustomerMenuView({ qrToken, onClose }) {
         });
       }
 
-      if (data?.isGenericAccess || tokenToUse === "default" || !matched) {
+      if (!matched || (matched.status || "").toLowerCase() !== "available" || data?.isGenericAccess || tokenToUse === "default" || tokenToUse === "menu") {
         setCurrentStep("select_table");
       } else {
         setCurrentStep("menu");
@@ -232,6 +232,10 @@ export default function CustomerMenuView({ qrToken, onClose }) {
       fetchMenuData(tokenToSend);
     } catch (err) {
       alert(err.message || "Failed to place order. Please check with restaurant staff.");
+      if (err.message && err.message.toLowerCase().includes("occupied")) {
+        fetchMenuData(tokenToSend);
+        setCurrentStep("select_table");
+      }
     } finally {
       setOrderSubmitting(false);
     }

@@ -54,6 +54,7 @@ function MainApp() {
   // Pending order count for Navbar badge
   const [pendingOrderCount, setPendingOrderCount] = useState(0);
   const [pendingKotCount, setPendingKotCount] = useState(0);
+  const [liveOrders, setLiveOrders] = useState([]);
 
   // Sync active tab with user role
   useEffect(() => {
@@ -70,31 +71,38 @@ function MainApp() {
     }
   }, [role]);
 
-  // Confirmed orders are waiting for the kitchen. Keep the KOT badge live even
-  // while the user is working on a different screen.
+  // Helper to check if an order was created today (same calendar date)
+  const isCreatedToday = (order) => {
+    if (!order?.createdAt) return false;
+    return new Date(order.createdAt).toDateString() === new Date().toDateString();
+  };
+
+  // Fetch initial live orders state once on auth load without continuous background polling.
   useEffect(() => {
     if (!isAuthenticated || role === "super_admin") {
       setPendingKotCount(0);
+      setLiveOrders([]);
       return undefined;
     }
 
     let isMounted = true;
-    const refreshKotCount = async () => {
+    const fetchInitialLiveOrders = async () => {
       try {
         const orders = await api.owner.getOrders({ limit: 100 });
         if (isMounted && Array.isArray(orders)) {
-          setPendingKotCount(orders.filter((order) => order.kitchenStatus === "confirmed").length);
+          setLiveOrders(orders);
+          setPendingKotCount(
+            orders.filter((order) => order.kitchenStatus === "confirmed" && isCreatedToday(order)).length
+          );
         }
       } catch (_) {
-        // A temporary polling error should not interrupt the POS interface.
+        // Silent catch for initial load
       }
     };
 
-    refreshKotCount();
-    const interval = setInterval(refreshKotCount, 3000);
+    fetchInitialLiveOrders();
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
   }, [isAuthenticated, role]);
 
@@ -164,11 +172,17 @@ function MainApp() {
       {/* Real-Time Incoming Order Pop-up Alert */}
       {role !== "super_admin" && (
         <NewOrderNotifier
+          orders={liveOrders}
           onOpenOrder={handleOpenOrderDetails}
           onPendingCountChange={setPendingOrderCount}
         />
       )}
-      {role !== "super_admin" && <BillRequestNotifier onOpenBill={handleOpenBillRequest} />}
+      {role !== "super_admin" && (
+        <BillRequestNotifier
+          orders={liveOrders}
+          onOpenBill={handleOpenBillRequest}
+        />
+      )}
 
       {/* Interactive Order Details Modal */}
       <OrderDetailsModal

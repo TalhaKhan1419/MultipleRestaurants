@@ -1,52 +1,35 @@
 import { useEffect, useRef, useState } from "react";
 import { BellRing, Receipt, X } from "lucide-react";
-import { api } from "../../services/api";
 import { playOrderChime } from "../../utils/audioAlert";
 
-export default function BillRequestNotifier({ onOpenBill }) {
+export default function BillRequestNotifier({ orders, onOpenBill }) {
   const [activeRequest, setActiveRequest] = useState(null);
   const seenRequestIds = useRef(new Set());
   const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    let isMounted = true;
+    if (!orders || !Array.isArray(orders) || orders.length === 0) return;
 
-    const checkBillRequests = async () => {
-      try {
-        const orders = await api.owner.getOrders({ limit: 100 });
-        if (!isMounted || !Array.isArray(orders)) return;
-
-        if (!isInitializedRef.current) {
-          orders.forEach((order) => {
-            if (order.billRequestedAt && order.paymentStatus !== "paid") {
-              seenRequestIds.current.add(order.id);
-            }
-          });
-          isInitializedRef.current = true;
-          return;
+    if (!isInitializedRef.current) {
+      orders.forEach((order) => {
+        if (order.billRequestedAt && order.paymentStatus !== "paid") {
+          seenRequestIds.current.add(order.id);
         }
+      });
+      isInitializedRef.current = true;
+      return;
+    }
 
-        const requestedBill = orders.find(
-          (order) => order.billRequestedAt && order.paymentStatus !== "paid" && !seenRequestIds.current.has(order.id)
-        );
+    const requestedBill = orders.find(
+      (order) => order.billRequestedAt && order.paymentStatus !== "paid" && !seenRequestIds.current.has(order.id)
+    );
 
-        if (requestedBill) {
-          seenRequestIds.current.add(requestedBill.id);
-          playOrderChime();
-          setActiveRequest(requestedBill);
-        }
-      } catch (_) {
-        // Keep the POS usable during a temporary polling failure.
-      }
-    };
-
-    checkBillRequests();
-    const interval = setInterval(checkBillRequests, 3000);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
+    if (requestedBill) {
+      seenRequestIds.current.add(requestedBill.id);
+      playOrderChime();
+      setActiveRequest(requestedBill);
+    }
+  }, [orders]);
 
   if (!activeRequest) return null;
 

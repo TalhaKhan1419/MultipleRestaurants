@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { api } from "../../services/api";
 import KOTConfirmationNotifier from "./KOTConfirmationNotifier";
+import { markOrdersAsSeen, hasBeenAlerted, triggerOrderAlertOnce } from "../../utils/orderAlertTracker";
 import {
   Printer,
   Clock,
@@ -28,7 +29,7 @@ export default function KOTManager() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
   const [confirmedOrderAlert, setConfirmedOrderAlert] = useState(null);
-  const orderKitchenStatusRef = useRef(new Map());
+  const orderStateRef = useRef(new Map());
   const isInitialLoadRef = useRef(true);
 
   const fetchOrders = async () => {
@@ -36,16 +37,25 @@ export default function KOTManager() {
       const queryParams = dateFilter === "today" ? { today: "true" } : {};
       const data = await api.owner.getOrders(queryParams);
       if (Array.isArray(data)) {
-        const nextStatuses = new Map(data.map((order) => [order.id, order.kitchenStatus]));
+        const nextStates = new Map(
+          data.map((order) => [
+            order.id,
+            `${order.kitchenStatus}_${(order.items || []).reduce((s, i) => s + Number(i.quantity || 0), 0)}_${order.updatedAt || order.createdAt}`,
+          ])
+        );
         if (isInitialLoadRef.current) {
           isInitialLoadRef.current = false;
+          markOrdersAsSeen(data);
         } else {
-          const newlyConfirmed = data.find((order) =>
-            order.kitchenStatus === "confirmed" && orderKitchenStatusRef.current.get(order.id) !== "confirmed"
-          );
-          if (newlyConfirmed) setConfirmedOrderAlert(newlyConfirmed);
+          const newlyConfirmed = data.find((order) => {
+            return order.kitchenStatus === "confirmed" && !hasBeenAlerted(order);
+          });
+          if (newlyConfirmed) {
+            triggerOrderAlertOnce(newlyConfirmed, true);
+            setConfirmedOrderAlert(newlyConfirmed);
+          }
         }
-        orderKitchenStatusRef.current = nextStatuses;
+        orderStateRef.current = nextStates;
         setOrders(data);
       }
     } catch (err) {
@@ -57,8 +67,36 @@ export default function KOTManager() {
 
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(fetchOrders, 4000);
-    return () => clearInterval(interval);
+
+    // 4-second real-time polling fallback
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 4000);
+
+    // Instant tab broadcast listener
+    let bc = null;
+    try {
+      bc = new BroadcastChannel("pos_orders");
+      bc.onmessage = (event) => {
+        if (event.data?.type === "NEW_ORDER" || event.data?.type === "KOT_UPDATE") {
+          fetchOrders();
+        }
+      };
+    } catch (e) {}
+
+    const handleStorage = (e) => {
+      if (e.key === "last_pos_order_ts" || e.key === "last_pos_order_data") {
+        fetchOrders();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      clearInterval(interval);
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
   }, [dateFilter]);
 
   const kotTickets = useMemo(() => {

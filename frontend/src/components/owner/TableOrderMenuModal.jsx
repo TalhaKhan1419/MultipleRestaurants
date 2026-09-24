@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { api } from "../../services/api";
+import { triggerOrderAlertOnce } from "../../utils/orderAlertTracker";
 import {
   X,
   Search,
@@ -303,6 +304,17 @@ export default function TableOrderMenuModal({
       };
 
       const result = await api.owner.createOrder(payload);
+
+      // Trigger order audio chime & notification once
+      try {
+        triggerOrderAlertOnce(result, true);
+      } catch (e) {}
+
+      try {
+        const bc = new BroadcastChannel("pos_orders");
+        bc.postMessage({ type: "NEW_ORDER", order: result });
+        bc.close();
+      } catch (e) {}
 
       if (onOrderPlaced) {
         onOrderPlaced(result);

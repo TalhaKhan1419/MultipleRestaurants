@@ -76,6 +76,7 @@ async function createPublicOrder(data) {
   return orderRepo.createOrder(restaurantId, {
     ...data,
     tableId: tableId,
+    isPublic: true,
   });
 }
 
