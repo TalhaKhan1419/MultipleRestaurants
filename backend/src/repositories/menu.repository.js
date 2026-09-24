@@ -237,4 +237,58 @@ async function findPublicMenu(qrToken) {
   };
 }
 
-module.exports = { findCategories, findItemsWithCategories, findItemById, createMenuItem, updateMenuItem, deleteMenuItem, findPublicMenu };
+async function findPublicAvailableTables(qrToken) {
+  let [tables] = await db.query(
+    `SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity,
+            CASE
+              WHEN rt.status = 'unavailable' THEN 'unavailable'
+              WHEN rt.status = 'occupied' THEN 'occupied'
+              WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status <> 'cancelled' AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) > 0 THEN 'occupied'
+              ELSE 'available'
+            END AS status,
+            rt.qr_token AS qrToken, r.id AS restaurantId, r.name AS restaurantName
+     FROM restaurant_tables rt
+     INNER JOIN restaurants r ON r.id = rt.restaurant_id
+     WHERE rt.qr_token = ? AND r.is_active = 1`,
+    [qrToken],
+  );
+
+  if (!tables.length) {
+    [tables] = await db.query(
+      `SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity,
+              CASE
+                WHEN rt.status = 'unavailable' THEN 'unavailable'
+                WHEN rt.status = 'occupied' THEN 'occupied'
+                WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status <> 'cancelled' AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) > 0 THEN 'occupied'
+                ELSE 'available'
+              END AS status,
+              rt.qr_token AS qrToken, r.id AS restaurantId, r.name AS restaurantName
+       FROM restaurant_tables rt
+       INNER JOIN restaurants r ON r.id = rt.restaurant_id
+       WHERE r.is_active = 1 ORDER BY r.id DESC LIMIT 1`
+    );
+  }
+
+  if (!tables.length) return [];
+  const restaurantId = tables[0].restaurantId;
+
+  const [allTables] = await db.query(
+    `SELECT rt.id AS tableId, rt.table_number AS tableNumber, rt.capacity,
+            CASE
+              WHEN rt.status = 'unavailable' THEN 'unavailable'
+              WHEN rt.status = 'occupied' THEN 'occupied'
+              WHEN (SELECT COUNT(*) FROM orders o WHERE o.table_id = rt.id AND o.status <> 'cancelled' AND (o.payment_status IS NULL OR o.payment_status <> 'paid')) > 0 THEN 'occupied'
+              ELSE 'available'
+            END AS status,
+            rt.qr_token AS qrToken
+     FROM restaurant_tables rt
+     WHERE rt.restaurant_id = ?
+     ORDER BY CAST(rt.table_number AS UNSIGNED), rt.table_number ASC`,
+    [restaurantId],
+  );
+
+  return allTables.filter((t) => (t.status || "").toLowerCase() === "available");
+}
+
+module.exports = { findCategories, findItemsWithCategories, findItemById, createMenuItem, updateMenuItem, deleteMenuItem, findPublicMenu, findPublicAvailableTables };
+

@@ -58,4 +58,9 @@ async function deleteMenuItem(restaurantId, id) {
   if (deleted.imagePublicId) await imageStorage.remove(deleted.imagePublicId).catch(() => {});
 }
 
-module.exports = { listMenu, createMenuItem, updateMenuItem, getMenuItem, deleteMenuItem, getPublicMenu: menuRepository.findPublicMenu };
+async function getPublicAvailableTables(qrToken) {
+  return menuRepository.findPublicAvailableTables(qrToken);
+}
+
+module.exports = { listMenu, createMenuItem, updateMenuItem, getMenuItem, deleteMenuItem, getPublicMenu: menuRepository.findPublicMenu, getPublicAvailableTables };
+

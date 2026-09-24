@@ -68,11 +68,28 @@ export default function CustomerMenuView({ qrToken, onClose }) {
   const [billRequestingId, setBillRequestingId] = useState(null);
   const [billPaymentOrder, setBillPaymentOrder] = useState(null);
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState("cash");
+  const [availableTablesList, setAvailableTablesList] = useState(null);
   const pollIntervalRef = useRef(null);
 
+  const fetchAvailableTables = useCallback(async (tokenToUse) => {
+    try {
+      const rawToken = tokenToUse || qrToken;
+      const validToken = (!rawToken || rawToken === "undefined" || rawToken === "null") ? "default" : rawToken;
+      const data = await api.public.getAvailableTables(validToken);
+      if (Array.isArray(data)) {
+        setAvailableTablesList(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch available tables:", err);
+    }
+  }, [qrToken]);
+
   const availableTables = useMemo(() => {
+    if (availableTablesList !== null && availableTablesList.length > 0) {
+      return availableTablesList.filter((t) => (t.status || "").toLowerCase() === "available");
+    }
     return menuData?.tables?.filter((t) => (t.status || "").toLowerCase() === "available") || [];
-  }, [menuData]);
+  }, [availableTablesList, menuData]);
 
   const availableRooms = useMemo(() => {
     return menuData?.rooms?.filter((r) => (r.status || "").toLowerCase() === "available") || [];
@@ -88,6 +105,7 @@ export default function CustomerMenuView({ qrToken, onClose }) {
     try {
       const data = await api.public.getMenu(tokenToUse);
       setMenuData(data);
+      await fetchAvailableTables(tokenToUse);
 
       // Match table from token or direct table info
       const matched =
@@ -123,6 +141,7 @@ export default function CustomerMenuView({ qrToken, onClose }) {
       setLoading(false);
     }
   };
+
 
   const addToCart = (item) => {
     setCart((prev) => {
@@ -585,7 +604,10 @@ export default function CustomerMenuView({ qrToken, onClose }) {
               <div className="flex items-center gap-1.5 mt-0.5">
                 <button
                   type="button"
-                  onClick={() => setCurrentStep("select_table")}
+                  onClick={() => {
+                    fetchAvailableTables();
+                    setCurrentStep("select_table");
+                  }}
                   className="px-2.5 py-0.5 rounded-md text-[10px] font-black bg-white/20 hover:bg-white/30 text-white border border-white/30 backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-all active:scale-95"
                   title="Click to select or change table"
                 >

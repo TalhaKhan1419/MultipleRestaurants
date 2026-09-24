@@ -154,6 +154,7 @@ export const api = {
   // Public QR Menu & Table Ordering
   public: {
     getMenu: (qrToken) => request(`/public/menu/${qrToken}`),
+    getAvailableTables: (qrToken) => request(`/public/tables/${qrToken}`),
     placeOrder: (data) => request("/public/orders", { method: "POST", body: data }),
     getOrderStatus: (orderId, qrToken) =>
       request(`/public/orders/${orderId}?qrToken=${encodeURIComponent(qrToken)}`),
@@ -163,3 +164,4 @@ export const api = {
       request(`/public/orders/${orderId}/payment`, { method: "POST", body: { qrToken, paymentMethod } }),
   },
 };
+

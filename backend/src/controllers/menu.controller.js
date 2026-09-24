@@ -47,4 +47,12 @@ async function getPublicMenu(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { listMenu, createMenuItem, updateMenuItem, getMenuItem, deleteMenuItem, getPublicMenu };
+async function getPublicAvailableTables(req, res, next) {
+  try {
+    const tables = await menuService.getPublicAvailableTables(req.params.qrToken);
+    return success(res, tables);
+  } catch (error) { return next(error); }
+}
+
+module.exports = { listMenu, createMenuItem, updateMenuItem, getMenuItem, deleteMenuItem, getPublicMenu, getPublicAvailableTables };
+
