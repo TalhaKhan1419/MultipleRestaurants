@@ -360,9 +360,18 @@ export default function TableManager({ initialMode = "tables", initialFilter = "
     setQrModalOpen(true);
     setActiveQrData(null);
     try {
-      if (type !== "table") throw new Error("QR menus are currently available for dining tables only.");
-      const qrData = await api.owner.getTableQRCode(item.id);
-      setActiveQrData(qrData);
+      if (type === "room") {
+        const qrData = await api.owner.getRoomQRCode(item.id);
+        setActiveQrData({
+          ...qrData,
+          tableNumber: `Room ${item.roomNumber}`,
+          roomNumber: item.roomNumber,
+          isRoom: true,
+        });
+      } else {
+        const qrData = await api.owner.getTableQRCode(item.id);
+        setActiveQrData(qrData);
+      }
     } catch (err) {
       setModalError(err.message || "Unable to generate QR code");
       setQrModalOpen(false);
@@ -690,6 +699,14 @@ export default function TableManager({ initialMode = "tables", initialFilter = "
                     </button>
 
                     <div className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenQrModal(room, "room")}
+                        className="p-1 rounded text-orange-600 hover:bg-orange-50 transition-colors cursor-pointer"
+                        title="Room QR Menu"
+                      >
+                        <QrCode className="w-3 h-3" />
+                      </button>
                       {!isOccupied && (
                         <button
                           type="button"

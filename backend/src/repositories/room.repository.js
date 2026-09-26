@@ -167,6 +167,37 @@ class RoomRepository {
 
     return this.getRoomById(restaurantId, roomId);
   }
+
+  async getRoomQRCode(restaurantId, id) {
+    const room = await this.getRoomById(restaurantId, id);
+    if (!room) {
+      const error = new Error("Room not found");
+      error.status = 404;
+      throw error;
+    }
+
+    const QRCode = require("qrcode");
+    const { getEnv } = require("../config/env");
+
+    const clientOrigin = getEnv().clientOrigin || "http://localhost:5173";
+    const targetUrl = `${clientOrigin}/menu?roomId=${room.id}&roomNumber=${encodeURIComponent(room.roomNumber)}`;
+    const qrDataUrl = await QRCode.toDataURL(targetUrl, {
+      width: 360,
+      margin: 2,
+      color: {
+        dark: "#0f172a",
+        light: "#ffffff",
+      },
+    });
+
+    return {
+      roomId: room.id,
+      roomNumber: room.roomNumber,
+      type: room.type,
+      url: targetUrl,
+      qrDataUrl,
+    };
+  }
 }
 
 module.exports = new RoomRepository();

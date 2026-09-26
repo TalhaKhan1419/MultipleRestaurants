@@ -445,60 +445,120 @@ export default function InventoryManager() {
       {/* SUMMARY METRICS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Items */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs relative overflow-hidden group">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("items");
+            setSelectedStatus("");
+            setPage(1);
+          }}
+          className={`text-left rounded-2xl p-4 border transition-all cursor-pointer shadow-2xs relative overflow-hidden group hover:scale-[1.02] ${
+            activeTab === "items" && selectedStatus === ""
+              ? "bg-blue-50/40 border-blue-500 ring-2 ring-blue-500/20 shadow-md"
+              : "bg-white border-slate-200/90 hover:border-blue-300 hover:shadow-xs"
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Items</span>
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Items</span>
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
               <Package className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2">
+          <div className="mt-2 flex items-baseline justify-between">
             <div className="text-2xl font-black text-slate-900 tracking-tight">{summary.totalItems}</div>
-            <div className="text-[11px] text-slate-400 mt-0.5 font-medium">All registered inventory items</div>
+            {activeTab === "items" && selectedStatus === "" && (
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">All Active</span>
+            )}
           </div>
-        </div>
+          <div className="text-[11px] text-slate-400 mt-0.5 font-medium">All registered inventory items</div>
+        </button>
 
         {/* In Stock */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs relative overflow-hidden group">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("items");
+            setSelectedStatus("in_stock");
+            setPage(1);
+          }}
+          className={`text-left rounded-2xl p-4 border transition-all cursor-pointer shadow-2xs relative overflow-hidden group hover:scale-[1.02] ${
+            activeTab === "items" && selectedStatus === "in_stock"
+              ? "bg-emerald-50/40 border-emerald-500 ring-2 ring-emerald-500/20 shadow-md"
+              : "bg-white border-slate-200/90 hover:border-emerald-300 hover:shadow-xs"
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">In Stock</span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2">
+          <div className="mt-2 flex items-baseline justify-between">
             <div className="text-2xl font-black text-emerald-700 tracking-tight">{summary.inStockCount}</div>
-            <div className="text-[11px] text-emerald-600 font-medium mt-0.5">Sufficient stock available</div>
+            {activeTab === "items" && selectedStatus === "in_stock" && (
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Filtered</span>
+            )}
           </div>
-        </div>
+          <div className="text-[11px] text-emerald-600 font-medium mt-0.5">Sufficient stock available</div>
+        </button>
 
         {/* Low Stock */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs relative overflow-hidden group">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("items");
+            setSelectedStatus("low_stock");
+            setPage(1);
+          }}
+          className={`text-left rounded-2xl p-4 border transition-all cursor-pointer shadow-2xs relative overflow-hidden group hover:scale-[1.02] ${
+            activeTab === "items" && selectedStatus === "low_stock"
+              ? "bg-amber-50/40 border-amber-500 ring-2 ring-amber-500/20 shadow-md"
+              : "bg-white border-slate-200/90 hover:border-amber-300 hover:shadow-xs"
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-bold uppercase tracking-wider text-amber-600">Low Stock</span>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2">
+          <div className="mt-2 flex items-baseline justify-between">
             <div className="text-2xl font-black text-amber-600 tracking-tight">{summary.lowStockCount}</div>
-            <div className="text-[11px] text-amber-600 font-medium mt-0.5">At or below minimum threshold</div>
+            {activeTab === "items" && selectedStatus === "low_stock" && (
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Filtered</span>
+            )}
           </div>
-        </div>
+          <div className="text-[11px] text-amber-600 font-medium mt-0.5">At or below minimum threshold</div>
+        </button>
 
         {/* Out of Stock */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs relative overflow-hidden group">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("items");
+            setSelectedStatus("out_of_stock");
+            setPage(1);
+          }}
+          className={`text-left rounded-2xl p-4 border transition-all cursor-pointer shadow-2xs relative overflow-hidden group hover:scale-[1.02] ${
+            activeTab === "items" && selectedStatus === "out_of_stock"
+              ? "bg-rose-50/40 border-rose-500 ring-2 ring-rose-500/20 shadow-md"
+              : "bg-white border-slate-200/90 hover:border-rose-300 hover:shadow-xs"
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Out of Stock</span>
-            <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
               <XCircle className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2">
+          <div className="mt-2 flex items-baseline justify-between">
             <div className="text-2xl font-black text-rose-600 tracking-tight">{summary.outOfStockCount}</div>
-            <div className="text-[11px] text-rose-600 font-medium mt-0.5">Requires immediate restock</div>
+            {activeTab === "items" && selectedStatus === "out_of_stock" && (
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">Filtered</span>
+            )}
           </div>
-        </div>
+          <div className="text-[11px] text-rose-600 font-medium mt-0.5">Requires immediate restock</div>
+        </button>
       </div>
 
       {/* NAVIGATION TABS */}

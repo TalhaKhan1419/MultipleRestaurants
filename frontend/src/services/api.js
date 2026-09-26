@@ -86,6 +86,7 @@ export const api = {
     getRooms: () => request("/rooms"),
     createRoom: (data) => request("/rooms", { method: "POST", body: data }),
     updateRoom: (id, data) => request(`/rooms/${id}`, { method: "PUT", body: data }),
+    getRoomQRCode: (id) => request(`/rooms/${id}/qrcode`),
     deleteRoom: (id) => request(`/rooms/${id}`, { method: "DELETE" }),
     checkInRoom: (id, data) => request(`/rooms/${id}/check-in`, { method: "POST", body: data }),
     checkOutRoom: (id) => request(`/rooms/${id}/check-out`, { method: "POST" }),

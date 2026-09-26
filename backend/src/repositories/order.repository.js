@@ -111,8 +111,18 @@ async function findAll(restaurantId, filters = {}) {
     if (!cleanName || cleanName.toLowerCase() === "walk-in guest" || cleanName.toLowerCase().startsWith("table ")) {
       cleanName = "Guest";
     }
+    let displayTableNumber = order.tableNumber;
+    if (!displayTableNumber && (order.orderType === "in_room" || (order.notes && order.notes.includes("Room")))) {
+      const roomMatch = order.notes && order.notes.match(/Room\s+([A-Za-z0-9\-]+)/i);
+      if (roomMatch) {
+        displayTableNumber = `Room ${roomMatch[1]}`;
+      } else {
+        displayTableNumber = "In-Room";
+      }
+    }
     return {
       ...order,
+      tableNumber: displayTableNumber,
       customerName: cleanName,
       customerPhone: cleanPhone,
       items: itemsByOrder.get(order.id) || [],
@@ -163,9 +173,19 @@ async function findById(restaurantId, id) {
   if (!cleanName || cleanName.toLowerCase() === "walk-in guest" || cleanName.toLowerCase().startsWith("table ")) {
     cleanName = "Guest";
   }
+  let displayTableNumber = order.tableNumber;
+  if (!displayTableNumber && (order.orderType === "in_room" || (order.notes && order.notes.includes("Room")))) {
+    const roomMatch = order.notes && order.notes.match(/Room\s+([A-Za-z0-9\-]+)/i);
+    if (roomMatch) {
+      displayTableNumber = `Room ${roomMatch[1]}`;
+    } else {
+      displayTableNumber = "In-Room";
+    }
+  }
 
   return {
     ...order,
+    tableNumber: displayTableNumber,
     customerName: cleanName,
     customerPhone: cleanPhone,
     items,
@@ -213,10 +233,30 @@ async function findOrCreateUser(connection, restaurantId, fullName, phone) {
   return result.insertId;
 }
 
-async function createOrder(restaurantId, { tableId, customerName, customerPhone, orderType = "dine_in", discountAmount = 0, paymentMethod = "unassigned", items, notes, isPublic = false }) {
+async function createOrder(restaurantId, { tableId, roomId, roomNumber, customerName, customerPhone, orderType = "dine_in", discountAmount = 0, paymentMethod = "unassigned", items, notes, isPublic = false }) {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
+
+    let finalOrderType = orderType;
+    let finalNotes = notes || "";
+
+    if (roomId || roomNumber || orderType === "in_room") {
+      finalOrderType = "in_room";
+      let targetRoomNum = roomNumber;
+      if (!targetRoomNum && roomId) {
+        const [roomRows] = await connection.query(
+          "SELECT room_number FROM guest_rooms WHERE id = ? AND restaurant_id = ?",
+          [roomId, restaurantId]
+        );
+        if (roomRows.length) {
+          targetRoomNum = roomRows[0].room_number;
+        }
+      }
+      if (targetRoomNum && !finalNotes.toLowerCase().includes("room")) {
+        finalNotes = `In-Room Order (Room ${targetRoomNum})${finalNotes.trim() ? ` - ${finalNotes.trim()}` : ""}`;
+      }
+    }
 
     const userId = await findOrCreateUser(connection, restaurantId, customerName, customerPhone);
 
@@ -317,8 +357,8 @@ async function createOrder(restaurantId, { tableId, customerName, customerPhone,
       const combinedTotal = Number((combinedTaxable + combinedTax).toFixed(2));
 
       let mergedNotes = existingNotes;
-      if (notes && notes.trim()) {
-        mergedNotes = mergedNotes ? `${mergedNotes}; ${notes.trim()}` : notes.trim();
+      if (finalNotes && finalNotes.trim()) {
+        mergedNotes = mergedNotes ? `${mergedNotes}; ${finalNotes.trim()}` : finalNotes.trim();
       }
 
       // Update existing order with recalculated totals and set kitchen_status to 'confirmed' for kitchen notification
@@ -343,7 +383,7 @@ async function createOrder(restaurantId, { tableId, customerName, customerPhone,
       const [orderResult] = await connection.query(
         `INSERT INTO orders (restaurant_id, table_id, user_id, order_number, status, kitchen_status, order_type, subtotal, discount_amount, tax_amount, total_amount, payment_status, payment_method, notes)
          VALUES (?, ?, ?, ?, 'confirmed', 'confirmed', ?, ?, ?, ?, ?, 'unpaid', ?, ?)`,
-        [restaurantId, tableId || null, userId, orderNumber, orderType, subtotal, discount, taxAmount, totalAmount, paymentMethod, notes || null]
+        [restaurantId, tableId || null, userId, orderNumber, finalOrderType, subtotal, discount, taxAmount, totalAmount, paymentMethod, finalNotes || null]
       );
 
       finalOrderId = orderResult.insertId;

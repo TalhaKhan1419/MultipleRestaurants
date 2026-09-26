@@ -120,7 +120,26 @@ export default function CustomerMenuView({ qrToken, onClose }) {
             }
           : null);
 
-      if (matched && (matched.status || "").toLowerCase() === "available") {
+      // Check URL search params for Room QR scan (e.g. ?roomId=1&roomNumber=101)
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramRoomId = urlParams.get("roomId") || urlParams.get("room_id");
+      const paramRoomNum = urlParams.get("roomNumber") || urlParams.get("room_number");
+
+      if (paramRoomId || paramRoomNum) {
+        const matchedRoom = data?.rooms?.find(
+          (r) => String(r.roomId || r.id) === String(paramRoomId) || String(r.roomNumber) === String(paramRoomNum)
+        );
+        setSelectedTable({
+          roomId: matchedRoom?.roomId || (paramRoomId ? Number(paramRoomId) : null),
+          tableId: null,
+          tableNumber: `Room ${paramRoomNum || matchedRoom?.roomNumber || paramRoomId}`,
+          roomNumber: paramRoomNum || matchedRoom?.roomNumber || paramRoomId,
+          isRoom: true,
+          capacity: matchedRoom?.capacity || 2,
+          status: matchedRoom?.status || "available",
+        });
+        setCurrentStep("menu");
+      } else if (matched && (matched.status || "").toLowerCase() === "available") {
         setSelectedTable({
           tableId: matched.tableId || matched.id,
           tableNumber: matched.tableNumber,
@@ -128,9 +147,8 @@ export default function CustomerMenuView({ qrToken, onClose }) {
           status: matched.status || "available",
           qrToken: matched.qrToken || tokenToUse,
         });
-      }
-
-      if (!matched || (matched.status || "").toLowerCase() !== "available" || data?.isGenericAccess || tokenToUse === "default" || tokenToUse === "menu") {
+        setCurrentStep("menu");
+      } else if (!matched || (matched.status || "").toLowerCase() !== "available" || data?.isGenericAccess || tokenToUse === "default" || tokenToUse === "menu") {
         setCurrentStep("select_table");
       } else {
         setCurrentStep("menu");
@@ -184,9 +202,11 @@ export default function CustomerMenuView({ qrToken, onClose }) {
     e.preventDefault();
     if (totalCartCount === 0) return;
 
-    if (!selectedTable?.tableId) {
+    const isRoomOrder = selectedTable?.isRoom || !!selectedTable?.roomId;
+
+    if (!selectedTable?.tableId && !isRoomOrder) {
       setCurrentStep("select_table");
-      alert("Kripya order submit karne se pehle apni Table select karein!");
+      alert("Kripya order submit karne se pehle apni Table ya Room select karein!");
       return;
     }
 
@@ -200,15 +220,19 @@ export default function CustomerMenuView({ qrToken, onClose }) {
 
     try {
       const tokenToSend = selectedTable?.qrToken || qrToken;
-      const isTakeaway = !selectedTable?.tableId;
+      const isTakeaway = !selectedTable?.tableId && !isRoomOrder;
 
       const payload = {
         qrToken: tokenToSend,
         tableId: selectedTable?.tableId || null,
-        customerName: customerName.trim() || "Guest",
+        roomId: selectedTable?.roomId || null,
+        roomNumber: selectedTable?.roomNumber || null,
+        customerName: customerName.trim() || (isRoomOrder ? `Room Guest` : "Guest"),
         customerPhone: trimmedPhone || "0000000000",
-        orderType: isTakeaway ? "takeaway" : "dine_in",
-        notes: orderNotes.trim(),
+        orderType: isRoomOrder ? "in_room" : isTakeaway ? "takeaway" : "dine_in",
+        notes: isRoomOrder
+          ? `In-Room Order (${selectedTable?.tableNumber || `Room ${selectedTable?.roomNumber}`})${orderNotes.trim() ? ` - ${orderNotes.trim()}` : ""}`
+          : orderNotes.trim(),
         items: Object.values(cart).map(({ item, quantity }) => ({
           menuItemId: item.id,
           quantity,

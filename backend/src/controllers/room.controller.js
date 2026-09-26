@@ -109,3 +109,13 @@ exports.checkOutRoom = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getRoomQRCode = async (req, res, next) => {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const qrInfo = await roomRepo.getRoomQRCode(restaurantId, Number(req.params.id));
+    res.json(qrInfo);
+  } catch (error) {
+    next(error);
+  }
+};

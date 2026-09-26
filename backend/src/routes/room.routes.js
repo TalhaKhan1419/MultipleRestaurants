@@ -12,5 +12,6 @@ router.put("/:id", roomController.updateRoom);
 router.delete("/:id", roomController.deleteRoom);
 router.post("/:id/check-in", roomController.checkInRoom);
 router.post("/:id/check-out", roomController.checkOutRoom);
+router.get("/:id/qrcode", roomController.getRoomQRCode);
 
 module.exports = router;
