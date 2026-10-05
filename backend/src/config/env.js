@@ -18,7 +18,17 @@ function getEnv() {
       password: process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : "",
     },
     jwt: { secret: process.env.JWT_SECRET || "development-only-secret", expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
+    imageStorage: process.env.IMAGE_STORAGE || "cloudinary",
     cloudinary: { cloudName: process.env.CLOUDINARY_CLOUD_NAME, apiKey: process.env.CLOUDINARY_API_KEY, apiSecret: process.env.CLOUDINARY_API_SECRET },
+    s3: {
+      region: process.env.AWS_REGION || "us-east-1",
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      bucket: process.env.AWS_S3_BUCKET,
+      endpoint: process.env.AWS_S3_ENDPOINT,
+      forcePathStyle: process.env.AWS_S3_FORCE_PATH_STYLE,
+      customUrl: process.env.AWS_S3_CUSTOM_URL,
+    },
   };
 }
 

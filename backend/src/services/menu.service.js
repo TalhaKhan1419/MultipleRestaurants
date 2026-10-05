@@ -1,8 +1,7 @@
 const menuRepository = require("../repositories/menu.repository");
-const CloudinaryStorage = require("./image/CloudinaryStorage");
+const StorageFactory = require("./image/StorageFactory");
 
 const uniqueCategoryIds = (categoryIds) => [...new Set(categoryIds)];
-const imageStorage = new CloudinaryStorage();
 
 async function listMenu(restaurantId) {
   const [categories, items] = await Promise.all([menuRepository.findCategories(restaurantId), menuRepository.findItemsWithCategories(restaurantId)]);
@@ -12,7 +11,7 @@ async function listMenu(restaurantId) {
 async function createMenuItem(restaurantId, data, imageFile) {
   let image;
   try {
-    image = await imageStorage.upload(imageFile, { restaurantId });
+    image = await StorageFactory.upload(imageFile, { restaurantId });
     return await menuRepository.createMenuItem({
       ...data,
       restaurantId,
@@ -21,7 +20,7 @@ async function createMenuItem(restaurantId, data, imageFile) {
       imagePublicId: image?.publicId || null,
     });
   } catch (error) {
-    if (image?.publicId) await imageStorage.remove(image.publicId).catch(() => {});
+    if (image?.publicId) await StorageFactory.remove(image.publicId).catch(() => {});
     throw error;
   }
 }
@@ -32,7 +31,7 @@ async function updateMenuItem(restaurantId, id, data, imageFile) {
 
   let image;
   try {
-    image = await imageStorage.upload(imageFile, { restaurantId });
+    image = await StorageFactory.upload(imageFile, { restaurantId });
     await menuRepository.updateMenuItem(id, {
       ...data,
       restaurantId,
@@ -41,11 +40,11 @@ async function updateMenuItem(restaurantId, id, data, imageFile) {
       imagePublicId: image?.publicId || existing.imagePublicId,
     });
   } catch (error) {
-    if (image?.publicId) await imageStorage.remove(image.publicId).catch(() => {});
+    if (image?.publicId) await StorageFactory.remove(image.publicId).catch(() => {});
     throw error;
   }
 
-  if (image && existing.imagePublicId) await imageStorage.remove(existing.imagePublicId).catch(() => {});
+  if (image && existing.imagePublicId) await StorageFactory.remove(existing.imagePublicId).catch(() => {});
 }
 
 async function getMenuItem(restaurantId, id) {
@@ -55,7 +54,7 @@ async function getMenuItem(restaurantId, id) {
 async function deleteMenuItem(restaurantId, id) {
   const deleted = await menuRepository.deleteMenuItem(restaurantId, id);
   if (!deleted) throw Object.assign(new Error("Menu item not found"), { status: 404 });
-  if (deleted.imagePublicId) await imageStorage.remove(deleted.imagePublicId).catch(() => {});
+  if (deleted.imagePublicId) await StorageFactory.remove(deleted.imagePublicId).catch(() => {});
 }
 
 async function getPublicAvailableTables(qrToken) {
