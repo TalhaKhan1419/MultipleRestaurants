@@ -6,20 +6,23 @@ const crypto = require("crypto");
 class S3Storage extends ImageStorage {
   getClient() {
     const { region, accessKeyId, secretAccessKey, bucket, endpoint, forcePathStyle } = getEnv().s3;
-    if (!accessKeyId || !secretAccessKey || !bucket) {
+    if (!bucket) {
       throw Object.assign(
-        new Error("AWS S3 storage is not properly configured. Missing AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, or AWS_S3_BUCKET."),
+        new Error("AWS S3 storage is not properly configured. Missing AWS_S3_BUCKET."),
         { status: 503 }
       );
     }
 
     const clientConfig = {
       region: region || "us-east-1",
-      credentials: {
+    };
+
+    if (accessKeyId && secretAccessKey) {
+      clientConfig.credentials = {
         accessKeyId,
         secretAccessKey,
-      },
-    };
+      };
+    }
 
     if (endpoint) {
       clientConfig.endpoint = endpoint;

@@ -9,15 +9,15 @@ async function testS3Connection() {
   console.log("Current IMAGE_STORAGE setting:", env.imageStorage);
   console.log("AWS S3 Config:");
   console.log("  Region:          ", env.s3.region || "(not set)");
-  console.log("  Access Key ID:   ", env.s3.accessKeyId ? `${env.s3.accessKeyId.slice(0, 4)}***` : "MISSING");
-  console.log("  Secret Key:      ", env.s3.secretAccessKey ? "*****" : "MISSING");
+  console.log("  Access Key ID:   ", env.s3.accessKeyId ? `${env.s3.accessKeyId.slice(0, 4)}***` : "(Not set - using EC2 IAM Role / default credential chain)");
+  console.log("  Secret Key:      ", env.s3.secretAccessKey ? "*****" : "(Not set - using EC2 IAM Role / default credential chain)");
   console.log("  Bucket Name:     ", env.s3.bucket || "MISSING");
   if (env.s3.endpoint) console.log("  Endpoint:        ", env.s3.endpoint);
   if (env.s3.customUrl) console.log("  Custom URL:      ", env.s3.customUrl);
 
-  if (!env.s3.accessKeyId || !env.s3.secretAccessKey || !env.s3.bucket) {
+  if (!env.s3.bucket) {
     console.error("\n❌ Error: Missing required AWS S3 configuration in .env!");
-    console.error("Please set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_S3_BUCKET in backend/.env\n");
+    console.error("Please set AWS_S3_BUCKET in backend/.env\n");
     process.exit(1);
   }
 
