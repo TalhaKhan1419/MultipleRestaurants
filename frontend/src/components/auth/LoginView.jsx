@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { UtensilsCrossed, Shield, Store, Lock, Mail, ArrowRight, AlertCircle, Sparkles, QrCode } from "lucide-react";
+import ForgotPasswordModal from "./ForgotPasswordModal";
 
 export default function LoginView({ onOpenCustomerView }) {
   const { login } = useAuth();
@@ -8,6 +9,7 @@ export default function LoginView({ onOpenCustomerView }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,7 +82,16 @@ export default function LoginView({ onOpenCustomerView }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#5c3b24] mb-1.5">Password</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-[#5c3b24]">Password</label>
+                <button
+                  type="button"
+                  onClick={() => setIsForgotPasswordOpen(true)}
+                  className="text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline transition-colors cursor-pointer"
+                >
+                  Forgot Password?
+                </button>
+              </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-orange-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -159,6 +170,12 @@ export default function LoginView({ onOpenCustomerView }) {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+      />
     </div>
   );
 }

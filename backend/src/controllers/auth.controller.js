@@ -1,5 +1,11 @@
 const authService = require("../services/auth.service");
-const { loginSchema, changePasswordSchema } = require("../validators/auth.validator");
+const {
+  loginSchema,
+  changePasswordSchema,
+  forgotPasswordSchema,
+  verifyOtpSchema,
+  resetPasswordSchema,
+} = require("../validators/auth.validator");
 const { success } = require("../utils/response");
 
 async function login(req, res, next) {
@@ -31,8 +37,53 @@ async function changePassword(req, res, next) {
   }
 }
 
+async function forgotPassword(req, res, next) {
+  try {
+    const data = forgotPasswordSchema.parse(req.body);
+    const result = await authService.forgotPassword(data.email);
+    return success(res, { message: result.message }, result.message);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function verifyResetOtp(req, res, next) {
+  try {
+    const data = verifyOtpSchema.parse(req.body);
+    const result = await authService.verifyResetOtp(data.email, data.otp);
+    return success(res, { resetToken: result.resetToken }, "OTP verified successfully");
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const data = resetPasswordSchema.parse(req.body);
+    const result = await authService.resetPassword(data.resetToken, data.newPassword);
+    return success(res, { message: result.message }, result.message);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function resendResetOtp(req, res, next) {
+  try {
+    const data = forgotPasswordSchema.parse(req.body);
+    const result = await authService.resendResetOtp(data.email);
+    return success(res, { message: result.message }, result.message);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   login,
   getMe,
   changePassword,
+  forgotPassword,
+  verifyResetOtp,
+  resetPassword,
+  resendResetOtp,
 };
+

@@ -65,7 +65,12 @@ export const api = {
     login: (credentials) => request("/auth/login", { method: "POST", body: credentials }),
     getMe: () => request("/auth/me"),
     changePassword: (data) => request("/auth/change-password", { method: "POST", body: data }),
+    forgotPassword: (data) => request("/auth/forgot-password", { method: "POST", body: data }),
+    verifyResetOtp: (data) => request("/auth/verify-reset-otp", { method: "POST", body: data }),
+    resetPassword: (data) => request("/auth/reset-password", { method: "POST", body: data }),
+    resendResetOtp: (data) => request("/auth/resend-reset-otp", { method: "POST", body: data }),
   },
+
 
   // Owner Dashboard & Entities
   owner: {
