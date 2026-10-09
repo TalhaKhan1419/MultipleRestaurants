@@ -22,6 +22,8 @@ import {
   Flame,
   ChefHat,
   MessageSquare,
+  Receipt,
+  LayoutGrid,
 } from "lucide-react";
 
 export default function TableOrderMenuModal({
@@ -37,6 +39,9 @@ export default function TableOrderMenuModal({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+
+  // Mobile View Tab state: 'menu' | 'kitchen' | 'summary'
+  const [mobileTab, setMobileTab] = useState("menu");
 
   // Order Details State
   const [selectedTableId, setSelectedTableId] = useState(table ? table.id : "");
@@ -89,6 +94,7 @@ export default function TableOrderMenuModal({
       setOrderNotes("");
       setPaymentMethod("unassigned");
       setEditingNotesItemId(null);
+      setMobileTab("menu");
     }
 
     prevIsOpenRef.current = isOpen;
@@ -238,7 +244,7 @@ export default function TableOrderMenuModal({
 
   // Pricing calculations
   const cartItemsList = useMemo(() => Object.values(cart), [cart]);
-  
+
   const cartSubtotal = useMemo(() => {
     return cartItemsList.reduce(
       (sum, { item, quantity }) => sum + Number(item.price || 0) * quantity,
@@ -351,32 +357,32 @@ export default function TableOrderMenuModal({
   return (
     <div className="fixed inset-0 z-50 bg-slate-50 w-full h-full flex flex-col overflow-hidden animate-fadeIn">
       <div className="w-full h-full flex flex-col overflow-hidden bg-slate-50 relative">
-        {/* Top Header Bar */}
-        <div className="px-6 py-3.5 border-b border-slate-200 bg-white shadow-2xs flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/20">
-              <UtensilsCrossed className="w-5 h-5" />
+        {/* Top Header Bar (Responsive) */}
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 border-b border-slate-200 bg-white shadow-2xs flex items-center justify-between shrink-0 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
+              <UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-800 tracking-tight">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-xs sm:text-base font-bold text-slate-800 tracking-tight truncate">
                   {table?.roomNumber
                     ? `Room Service — Room ${table.roomNumber}`
                     : orderType === "dine_in"
                     ? `Take Order — Table ${activeTableObj?.tableNumber || selectedTableId || "POS"}`
                     : "Takeaway / Parcel"}
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-orange-100 text-orange-700 border border-orange-200">
+                <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide bg-orange-100 text-orange-700 border border-orange-200 shrink-0">
                   {orderType === "dine_in" ? "Dine-In POS" : "Takeaway"}
                 </span>
                 {orderType === "dine_in" && activeTableObj?.capacity && (
-                  <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
                     <Users className="w-3 h-3 text-slate-400" />
                     <span>{activeTableObj.capacity} Seats</span>
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
+              <p className="hidden sm:block text-xs text-slate-500 font-medium mt-0.5 truncate">
                 Full Screen POS Terminal — Select dishes, add customer details, and send ticket to KOT
               </p>
             </div>
@@ -385,17 +391,69 @@ export default function TableOrderMenuModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 font-bold text-xs flex items-center gap-2 border border-slate-200 transition-all cursor-pointer"
+            className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 font-bold text-[11px] sm:text-xs flex items-center gap-1.5 border border-slate-200 transition-all cursor-pointer shrink-0"
             title="Exit Full Screen POS"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Exit POS</span>
+          </button>
+        </div>
+
+        {/* Mobile Sub-Navigation Bar (< lg screens) */}
+        <div className="lg:hidden bg-slate-100 border-b border-slate-200 p-1 flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setMobileTab("menu")}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              mobileTab === "menu"
+                ? "bg-white text-orange-600 shadow-2xs border border-slate-200"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <UtensilsCrossed className="w-3.5 h-3.5" />
+            <span>Dishes</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMobileTab("kitchen")}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer relative ${
+              mobileTab === "kitchen"
+                ? "bg-white text-rose-600 shadow-2xs border border-slate-200"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <ChefHat className="w-3.5 h-3.5" />
+            <span>Kitchen (KOT)</span>
+            {(existingOrders.length > 0 || cartItemsList.length > 0) && (
+              <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">
+                {existingOrders.length + (cartItemsList.length > 0 ? 1 : 0)}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMobileTab("summary")}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer relative ${
+              mobileTab === "summary"
+                ? "bg-white text-orange-600 shadow-2xs border border-slate-200"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>Order & Pay</span>
+            {totalCartCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-orange-500 text-white text-[9px] font-black flex items-center justify-center">
+                {totalCartCount}
+              </span>
+            )}
           </button>
         </div>
 
         {/* Error Notification Banner */}
         {error && (
-          <div className="mx-6 mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center justify-between shadow-2xs shrink-0">
+          <div className="mx-3 sm:mx-6 mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center justify-between shadow-2xs shrink-0">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
               <span>{error}</span>
@@ -411,11 +469,17 @@ export default function TableOrderMenuModal({
         )}
 
         {/* Main Content Body */}
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          {/* Menu Browsing Section with Left Vertical Category Sidebar */}
-          <div className="flex-1 flex flex-row border-b lg:border-b-0 lg:border-r border-slate-200 overflow-hidden bg-[#f8fafc]">
-            {/* Left Vertical Categories Sidebar */}
-            <div className="w-36 sm:w-40 md:w-44 bg-white border-r border-slate-200/90 overflow-y-auto shrink-0 flex flex-col p-2 space-y-1 shadow-2xs">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+          
+          {/* SECTION 1: Menu Browsing (Dishes & Categories) */}
+          <div
+            className={`flex-1 flex flex-col lg:flex-row border-b lg:border-b-0 lg:border-r border-slate-200 overflow-hidden bg-[#f8fafc] ${
+              mobileTab === "menu" ? "flex" : "hidden lg:flex"
+            }`}
+          >
+            {/* Left Category Sidebar (Desktop Vertical / Mobile Horizontal Scrolling Pills) */}
+            {/* Desktop Vertical Sidebar */}
+            <div className="hidden lg:flex w-36 sm:w-40 md:w-44 bg-white border-r border-slate-200/90 overflow-y-auto shrink-0 flex-col p-2 space-y-1 shadow-2xs">
               <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-2 py-1 mb-0.5">
                 Categories
               </div>
@@ -463,26 +527,59 @@ export default function TableOrderMenuModal({
               })}
             </div>
 
+            {/* Mobile Horizontal Category Pills Bar */}
+            <div className="lg:hidden bg-white border-b border-slate-200 px-2 py-1.5 overflow-x-auto flex items-center gap-1.5 shrink-0 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory("all")}
+                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  selectedCategory === "all"
+                    ? "bg-orange-500 text-white shadow-2xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                All Items ({menu.items?.length || 0})
+              </button>
+              {(menu.categories || []).map((cat) => {
+                const isCatActive = String(selectedCategory) === String(cat.id);
+                const count = (menu.items || []).filter((i) => i.categoryId === cat.id || (i.categories && i.categories.some(c => c.id === cat.id))).length;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      isCatActive
+                        ? "bg-orange-500 text-white shadow-2xs"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    {cat.name} {count > 0 ? `(${count})` : ""}
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Right Menu Content (Filter Bar + Compact Dish Grid) */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Filter Bar: Search, Order Type, Table Picker, Veg Filter */}
-              <div className="p-3 bg-white border-b border-slate-200/80 shrink-0">
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="flex-1 flex flex-col overflow-hidden relative">
+              {/* Filter Bar: Search, Table Picker, Veg Filter */}
+              <div className="p-2.5 sm:p-3 bg-white border-b border-slate-200/80 shrink-0">
+                <div className="flex items-center gap-2">
                   {/* Search Input */}
                   <div className="relative flex-1">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Search dishes by name..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-orange-500 focus:bg-white transition-all"
+                      placeholder="Search dishes..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-7 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-orange-500 focus:bg-white transition-all"
                     />
                     {searchTerm && (
                       <button
                         type="button"
                         onClick={() => setSearchTerm("")}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -491,15 +588,15 @@ export default function TableOrderMenuModal({
 
                   {/* Table Picker if Dine-In */}
                   {orderType === "dine_in" && allTables.length > 1 && !table && (
-                    <div className="w-full sm:w-40">
+                    <div className="w-32 sm:w-40 shrink-0">
                       <select
                         value={selectedTableId}
                         onChange={(e) => setSelectedTableId(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-orange-500"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-orange-500"
                       >
                         {allTables.map((tbl) => (
                           <option key={tbl.id} value={tbl.id}>
-                            Table {tbl.tableNumber} ({tbl.capacity}p)
+                            Table {tbl.tableNumber}
                           </option>
                         ))}
                       </select>
@@ -510,24 +607,24 @@ export default function TableOrderMenuModal({
                   <button
                     type="button"
                     onClick={() => setVegOnly(!vegOnly)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                    className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 border transition-all cursor-pointer shrink-0 ${
                       vegOnly
                         ? "bg-emerald-500 text-white border-emerald-600 shadow-xs"
                         : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                     }`}
                   >
                     <span className={`w-2 h-2 rounded-full ${vegOnly ? "bg-white" : "bg-emerald-500"}`} />
-                    <span>Veg Only</span>
+                    <span className="hidden sm:inline">Veg Only</span>
                   </button>
                 </div>
               </div>
 
-              {/* Menu Cards Grid - Compact POS Tiles (Image 2 style) */}
-              <div className="flex-1 overflow-y-auto p-3">
+              {/* Menu Cards Grid */}
+              <div className="flex-1 overflow-y-auto p-2.5 sm:p-3">
                 {isKotCompleted && (
-                  <div className="mb-2.5 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                  <div className="mb-2.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>KOT Status Completed — Dish addition disabled. Bill & Payment option is enabled.</span>
+                    <span>KOT Completed — Bill & Payment enabled.</span>
                   </div>
                 )}
                 {loading ? (
@@ -541,7 +638,7 @@ export default function TableOrderMenuModal({
                     <div>No menu items found matching this filter.</div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2 pb-16 lg:pb-0">
                     {filteredItems.map((dish) => {
                       const cartEntry = cart[dish.id];
                       const inCartCount = cartEntry ? cartEntry.quantity : 0;
@@ -635,14 +732,42 @@ export default function TableOrderMenuModal({
                   </div>
                 )}
               </div>
+
+              {/* Mobile Floating Bottom Bar for Fast Order Checkout */}
+              {totalCartCount > 0 && (
+                <div className="lg:hidden absolute bottom-2 left-2 right-2 bg-orange-500 text-white p-2.5 rounded-2xl shadow-xl flex items-center justify-between z-10 border border-orange-400 animate-slideUp">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-white/20 text-white font-black text-xs flex items-center justify-center">
+                      {totalCartCount}
+                    </span>
+                    <div>
+                      <div className="text-xs font-extrabold leading-none">₹{cartSubtotal.toFixed(2)}</div>
+                      <div className="text-[10px] text-orange-100 font-medium mt-0.5">Selected Items</div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab("summary")}
+                    className="px-3 py-1.5 rounded-xl bg-white text-orange-600 font-extrabold text-xs flex items-center gap-1 shadow-2xs cursor-pointer hover:bg-orange-50"
+                  >
+                    <span>View Summary & Pay</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Right Section: 2 Side-by-Side Slim Columns (Matching Photo Exactly) */}
-          <div className="flex flex-row border-l border-slate-200 shrink-0 bg-white overflow-hidden">
+          {/* SECTION 2 & 3: Right Columns Container (Desktop Side-by-Side / Mobile Tab Views) */}
+          <div className="flex flex-col lg:flex-row border-t lg:border-t-0 lg:border-l border-slate-200 shrink-0 bg-white overflow-hidden flex-1 lg:flex-none">
             
             {/* COLUMN 1: "Sending to the kitchen" */}
-            <div className="w-[260px] sm:w-[280px] border-r border-slate-200 flex flex-col justify-between bg-slate-50/30 overflow-hidden shrink-0">
+            <div
+              className={`w-full lg:w-[260px] xl:w-[280px] border-r border-slate-200 flex-col justify-between bg-slate-50/30 overflow-hidden shrink-0 ${
+                mobileTab === "kitchen" ? "flex flex-1 lg:flex-none" : "hidden lg:flex"
+              }`}
+            >
               {/* Header */}
               <div className="p-3 border-b border-slate-200 bg-white shrink-0 flex items-center justify-between">
                 <h3 className="text-xs font-black text-slate-800 tracking-tight">Sending to the kitchen</h3>
@@ -734,17 +859,36 @@ export default function TableOrderMenuModal({
             </div>
 
             {/* COLUMN 2: "Summary" */}
-            <div className="w-[250px] sm:w-[270px] flex flex-col justify-between bg-white overflow-hidden shrink-0">
+            <div
+              className={`w-full lg:w-[250px] xl:w-[270px] flex-col justify-between bg-white overflow-hidden shrink-0 ${
+                mobileTab === "summary" ? "flex flex-1 lg:flex-none" : "hidden lg:flex"
+              }`}
+            >
               {/* Header */}
-              <div className="p-3 border-b border-slate-200 bg-white shrink-0">
+              <div className="p-3 border-b border-slate-200 bg-white shrink-0 flex items-center justify-between">
                 <h3 className="text-xs font-black text-slate-800 tracking-tight">Summary</h3>
+                <span className="text-[10px] font-bold text-slate-400">₹{grandTotal.toFixed(2)}</span>
               </div>
 
-              {/* Middle Area: Watermark Empty Order */}
+              {/* Middle Area: Order Items / Watermark Empty Order */}
               <div className="flex-1 overflow-y-auto p-2.5 flex flex-col items-center justify-center">
-                <div className="py-20 text-center text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Empty order
-                </div>
+                {cartItemsList.length === 0 && existingOrders.length === 0 ? (
+                  <div className="py-16 text-center text-slate-300 text-xs font-bold uppercase tracking-wider">
+                    Empty order
+                  </div>
+                ) : (
+                  <div className="w-full space-y-2">
+                    <div className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">
+                      Selected Items ({totalCartCount + existingOrders.reduce((sum, o) => sum + (o.items?.length || 0), 0)})
+                    </div>
+                    {cartItemsList.map(({ item, quantity }) => (
+                      <div key={item.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-100">
+                        <span className="font-semibold text-slate-700 truncate">{item.name} x {quantity}</span>
+                        <span className="font-bold text-slate-900">₹{(Number(item.price) * quantity).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Bottom Tax Breakdown & Action Buttons */}
@@ -786,7 +930,7 @@ export default function TableOrderMenuModal({
                       type="button"
                       onClick={handlePlaceOrder}
                       disabled={submitting || isKotCompleted}
-                      className="w-full py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs flex items-center justify-center gap-1 shadow-xs cursor-pointer disabled:opacity-50"
+                      className="w-full py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs flex items-center justify-center gap-1 shadow-xs cursor-pointer disabled:opacity-50"
                     >
                       <span>SEND TO KITCHEN</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -797,14 +941,14 @@ export default function TableOrderMenuModal({
                         type="button"
                         onClick={handleCompleteAndSettleOrder}
                         disabled={submitting || existingOrders.length === 0}
-                        className="py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] disabled:opacity-40 cursor-pointer"
+                        className="py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] disabled:opacity-40 cursor-pointer"
                       >
                         RECEIVE PAYMENT
                       </button>
                       <button
                         type="button"
                         onClick={onClose}
-                        className="py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 font-bold text-[10px] cursor-pointer"
+                        className="py-2 rounded-lg bg-white border border-slate-300 text-slate-700 font-bold text-[10px] cursor-pointer"
                       >
                         PAY LATER
                       </button>
@@ -817,7 +961,7 @@ export default function TableOrderMenuModal({
                     <button
                       type="button"
                       onClick={onClose}
-                      className="w-full py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] cursor-pointer"
+                      className="w-full py-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] cursor-pointer"
                     >
                       Close Menu
                     </button>
