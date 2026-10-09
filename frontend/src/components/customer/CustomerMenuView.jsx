@@ -99,13 +99,22 @@ export default function CustomerMenuView({ qrToken, onClose }) {
     fetchMenuData(qrToken);
   }, [qrToken]);
 
-  const fetchMenuData = async (tokenToUse) => {
+  const fetchMenuData = async (tokenToUse, keepStep = false) => {
     setLoading(true);
     setError(null);
     try {
       const data = await api.public.getMenu(tokenToUse);
       setMenuData(data);
       await fetchAvailableTables(tokenToUse);
+
+      const isGenericToken =
+        !tokenToUse ||
+        tokenToUse === "default" ||
+        tokenToUse === "menu" ||
+        tokenToUse === "customer" ||
+        tokenToUse === "null" ||
+        tokenToUse === "undefined" ||
+        Boolean(data?.isGenericAccess);
 
       // Match table from token or direct table info
       const matched =
@@ -138,8 +147,9 @@ export default function CustomerMenuView({ qrToken, onClose }) {
           capacity: matchedRoom?.capacity || 2,
           status: matchedRoom?.status || "available",
         });
-        setCurrentStep("menu");
-      } else if (matched && (matched.status || "").toLowerCase() === "available") {
+        if (!keepStep) setCurrentStep("menu");
+      } else if (!isGenericToken && matched) {
+        // Direct QR code scan for a specific table -> land straight on menu
         setSelectedTable({
           tableId: matched.tableId || matched.id,
           tableNumber: matched.tableNumber,
@@ -147,11 +157,18 @@ export default function CustomerMenuView({ qrToken, onClose }) {
           status: matched.status || "available",
           qrToken: matched.qrToken || tokenToUse,
         });
-        setCurrentStep("menu");
-      } else if (!matched || (matched.status || "").toLowerCase() !== "available" || data?.isGenericAccess || tokenToUse === "default" || tokenToUse === "menu") {
-        setCurrentStep("select_table");
+        if (!keepStep) setCurrentStep("menu");
       } else {
-        setCurrentStep("menu");
+        // Generic Customer View (Public link / Clicked "Customer View" button)
+        if (!keepStep) {
+          setSelectedTable((prevSelected) => {
+            if (prevSelected && (prevSelected.tableId || prevSelected.roomId)) {
+              return prevSelected;
+            }
+            setCurrentStep("select_table");
+            return null;
+          });
+        }
       }
     } catch (err) {
       setError(err.message || "Failed to load digital restaurant menu.");
@@ -271,12 +288,12 @@ export default function CustomerMenuView({ qrToken, onClose }) {
         localStorage.setItem("last_pos_order_data", JSON.stringify(result));
       } catch (e) {}
 
-      // Refresh menu data in background
-      fetchMenuData(tokenToSend);
+      // Refresh menu data in background without overriding currentStep or resetting selectedTable
+      fetchMenuData(tokenToSend, true);
     } catch (err) {
       alert(err.message || "Failed to place order. Please check with restaurant staff.");
       if (err.message && err.message.toLowerCase().includes("occupied")) {
-        fetchMenuData(tokenToSend);
+        fetchMenuData(tokenToSend, true);
         setCurrentStep("select_table");
       }
     } finally {

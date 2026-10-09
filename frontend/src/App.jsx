@@ -163,7 +163,7 @@ function MainApp() {
   if (!isAuthenticated) {
     return (
       <LoginView
-        onOpenCustomerView={() => {}}
+        onOpenCustomerView={handleOpenCustomerView}
       />
     );
   }
@@ -180,16 +180,7 @@ function MainApp() {
     setPendingOrderCount((prev) => Math.max(0, prev - 1));
   };
 
-  const handleOpenCustomerView = async () => {
-    try {
-      const tables = await api.owner.getTables();
-      if (tables && tables.length > 0 && tables[0].qrToken) {
-        window.open(`/table/${tables[0].qrToken}`, "_blank");
-        return;
-      }
-    } catch (e) {
-      console.error(e);
-    }
+  const handleOpenCustomerView = () => {
     window.open("/menu", "_blank");
   };
 
