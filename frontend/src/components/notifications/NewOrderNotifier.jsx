@@ -93,16 +93,6 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
     };
   }, [handleNewOrderReceived]);
 
-  // Auto-dismiss alert popup after 20 seconds if not interacted with
-  useEffect(() => {
-    if (!activeAlert || accepted || cancelled) return;
-    const timer = setTimeout(() => {
-      setActiveAlert(null);
-    }, 20000);
-
-    return () => clearTimeout(timer);
-  }, [activeAlert, accepted, cancelled]);
-
   const handleAcceptOrder = async (e) => {
     e.stopPropagation();
     if (!activeAlert || !activeAlert.id || accepting || cancelling) return;
@@ -259,21 +249,21 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
                 type="button"
                 onClick={handleAcceptOrder}
                 disabled={accepting || cancelling}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-extrabold text-xs py-2 px-2.5 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-1 cursor-pointer"
+                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-extrabold text-xs py-2 px-3 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {accepting ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <CheckCircle className="w-4 h-4" />
                 )}
-                <span>Accept</span>
+                <span>Accept Order</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleCancelOrder}
                 disabled={accepting || cancelling}
-                className="bg-rose-50 hover:bg-rose-100 border border-rose-200 disabled:opacity-50 text-rose-700 font-extrabold text-xs py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                className="bg-white hover:bg-rose-50 border border-rose-300 disabled:opacity-50 text-rose-600 font-extrabold text-xs py-2 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {cancelling ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
@@ -290,9 +280,9 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
                   setActiveAlert(null);
                 }}
                 className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                title="View Full Order Details"
               >
-                <span>Details</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-4 h-4" />
               </button>
             </>
           )}
