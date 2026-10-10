@@ -159,6 +159,10 @@ function MainApp() {
     );
   }
 
+  const handleOpenCustomerView = () => {
+    window.open("/menu", "_blank");
+  };
+
   // If unauthenticated, show Login screen
   if (!isAuthenticated) {
     return (
@@ -178,10 +182,6 @@ function MainApp() {
     setActiveTab("orders");
     // Clear badge when admin opens order
     setPendingOrderCount((prev) => Math.max(0, prev - 1));
-  };
-
-  const handleOpenCustomerView = () => {
-    window.open("/menu", "_blank");
   };
 
   const handleOpenBillRequest = (order) => {
