@@ -165,11 +165,7 @@ function MainApp() {
 
   // If unauthenticated, show Login screen
   if (!isAuthenticated) {
-    return (
-      <LoginView
-        onOpenCustomerView={handleOpenCustomerView}
-      />
-    );
+    return <LoginView />;
   }
 
   const handleInspectTenant = () => {

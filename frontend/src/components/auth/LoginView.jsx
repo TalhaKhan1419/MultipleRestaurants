@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { UtensilsCrossed, Lock, Mail, ArrowRight, AlertCircle, QrCode } from "lucide-react";
+import { UtensilsCrossed, Lock, Mail, ArrowRight, AlertCircle } from "lucide-react";
 import ForgotPasswordModal from "./ForgotPasswordModal";
 
-export default function LoginView({ onOpenCustomerView }) {
+export default function LoginView() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -112,17 +112,7 @@ export default function LoginView({ onOpenCustomerView }) {
 
 
 
-          {/* Customer View Link */}
-          <div className="mt-4 pt-3 text-center">
-            <button
-              type="button"
-              onClick={onOpenCustomerView}
-              className="text-xs text-[#87644a] hover:text-orange-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <QrCode className="w-3.5 h-3.5 text-orange-500" />
-              <span>View Customer Table QR Menu (Public)</span>
-            </button>
-          </div>
+          {/* End Form */}
         </div>
       </div>
 
