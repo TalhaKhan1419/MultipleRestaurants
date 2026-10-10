@@ -232,10 +232,12 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onStatusUpda
               <span>Subtotal:</span>
               <span className="font-semibold text-slate-800">₹{Number(order.subtotal || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-slate-600">
-              <span>Tax / GST (5%):</span>
-              <span className="font-semibold text-slate-800">₹{Number(order.taxAmount || 0).toFixed(2)}</span>
-            </div>
+            {Number(order.taxAmount || 0) > 0 && (
+              <div className="flex justify-between text-slate-600">
+                <span>Tax / GST:</span>
+                <span className="font-semibold text-slate-800">₹{Number(order.taxAmount).toFixed(2)}</span>
+              </div>
+            )}
             {Number(order.discountAmount || 0) > 0 && (
               <div className="flex justify-between text-emerald-600">
                 <span>Discount:</span>

@@ -292,8 +292,8 @@ async function createOrder(restaurantId, { tableId, roomId, roomNumber, customer
     subtotal = Number(subtotal.toFixed(2));
     const discount = Math.min(Number(discountAmount || 0), subtotal);
     const taxableAmount = Math.max(0, subtotal - discount);
-    const taxAmount = Number((taxableAmount * 0.05).toFixed(2)); // 5% Standard VAT
-    const totalAmount = Number((taxableAmount + taxAmount).toFixed(2));
+    const taxAmount = 0;
+    const totalAmount = Number(taxableAmount.toFixed(2));
 
     let existingOrderId = null;
     let existingNotes = null;
@@ -353,8 +353,8 @@ async function createOrder(restaurantId, { tableId, roomId, roomNumber, customer
       const combinedSubtotal = Number(sumRows[0].totalSubtotal || 0);
       const combinedDiscount = Math.min(Number(discountAmount || 0), combinedSubtotal);
       const combinedTaxable = Math.max(0, combinedSubtotal - combinedDiscount);
-      const combinedTax = Number((combinedTaxable * 0.05).toFixed(2));
-      const combinedTotal = Number((combinedTaxable + combinedTax).toFixed(2));
+      const combinedTax = 0;
+      const combinedTotal = Number(combinedTaxable.toFixed(2));
 
       let mergedNotes = existingNotes;
       if (finalNotes && finalNotes.trim()) {

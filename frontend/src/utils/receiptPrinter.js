@@ -42,7 +42,7 @@ export function printReceipt(order) {
       <div class="line"></div>
       <table>
         <tr><td>Subtotal</td><td class="right">${money(order.subtotal)}</td></tr>
-        <tr><td>Tax / GST</td><td class="right">${money(order.taxAmount)}</td></tr>
+        ${Number(order.taxAmount || 0) > 0 ? `<tr><td>Tax / GST</td><td class="right">${money(order.taxAmount)}</td></tr>` : ""}
         ${Number(order.discountAmount || 0) > 0 ? `<tr><td>Discount</td><td class="right">-${money(order.discountAmount)}</td></tr>` : ""}
         <tr class="total"><td>Total</td><td class="right">${money(order.totalAmount)}</td></tr>
       </table>

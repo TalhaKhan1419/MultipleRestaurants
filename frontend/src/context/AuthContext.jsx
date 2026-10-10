@@ -26,6 +26,7 @@ export function AuthProvider({ children }) {
           setAuthToken(null);
           localStorage.removeItem("token");
           localStorage.removeItem("selectedRestaurantId");
+          localStorage.removeItem("activeTab");
           setToken(null);
           setUser(null);
         }
@@ -55,9 +56,11 @@ export function AuthProvider({ children }) {
     setAuthToken(null);
     localStorage.removeItem("token");
     localStorage.removeItem("selectedRestaurantId");
+    localStorage.removeItem("activeTab");
     setToken(null);
     setUser(null);
     setSelectedRestaurantIdState(null);
+    window.location.href = "/";
   };
 
   const setSelectedRestaurantId = (id) => {

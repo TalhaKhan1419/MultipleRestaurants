@@ -212,8 +212,8 @@ export default function CustomerMenuView({ qrToken, onClose }) {
     (sum, i) => sum + Number(i.item.price) * i.quantity,
     0
   );
-  const taxAmount = Number((cartSubtotal * 0.05).toFixed(2));
-  const grandTotal = Number((cartSubtotal + taxAmount).toFixed(2));
+  const taxAmount = 0;
+  const grandTotal = Number(cartSubtotal.toFixed(2));
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
@@ -1128,8 +1128,7 @@ export default function CustomerMenuView({ qrToken, onClose }) {
                       </span>
                     </div>
                     <div className="text-[10px] text-orange-100 font-bold mt-0.5">
-                      Total: ₹{grandTotal.toFixed(2)}{" "}
-                      <span className="text-[10px] text-orange-200 font-normal">(inc. 5% tax)</span>
+                      Total: ₹{grandTotal.toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -1487,10 +1486,6 @@ export default function CustomerMenuView({ qrToken, onClose }) {
                   <div className="flex justify-between">
                     <span>Item Subtotal ({totalCartCount} items):</span>
                     <span className="text-[#3b2618] font-bold">₹{cartSubtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>VAT / Tax (5% Standard):</span>
-                    <span className="text-[#3b2618] font-bold">₹{taxAmount.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-baseline text-sm font-black text-[#3b2618] pt-2 border-t border-orange-200">
                     <span className="text-xs uppercase tracking-wider text-[#7c5e48]">To Pay at Table:</span>

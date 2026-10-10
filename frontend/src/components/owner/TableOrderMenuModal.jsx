@@ -266,8 +266,8 @@ export default function TableOrderMenuModal({
   const subtotal = useMemo(() => cartSubtotal + sentItemsSubtotal, [cartSubtotal, sentItemsSubtotal]);
   const discount = useMemo(() => Math.min(Number(discountAmount || 0), subtotal), [discountAmount, subtotal]);
   const taxableSubtotal = useMemo(() => Math.max(0, subtotal - discount), [subtotal, discount]);
-  const taxAmount = useMemo(() => Number((taxableSubtotal * 0.05).toFixed(2)), [taxableSubtotal]);
-  const grandTotal = useMemo(() => Number((taxableSubtotal + taxAmount).toFixed(2)), [taxableSubtotal, taxAmount]);
+  const taxAmount = 0;
+  const grandTotal = useMemo(() => Number(taxableSubtotal.toFixed(2)), [taxableSubtotal]);
   const totalCartCount = useMemo(
     () => cartItemsList.reduce((sum, i) => sum + i.quantity, 0),
     [cartItemsList]
@@ -903,21 +903,9 @@ export default function TableOrderMenuModal({
                   </div>
                 </div>
 
-                {/* Net, Tax, Grand Total */}
+                {/* Net & Grand Total */}
                 <div className="space-y-1 text-[10px] pt-1 border-t border-slate-200/80">
-                  <div className="flex items-center justify-between text-slate-500 font-medium">
-                    <span>NET AMOUNT</span>
-                    <span className="font-bold text-slate-800">₹{taxableSubtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-500 font-medium">
-                    <span>CGST 2.5%</span>
-                    <span className="font-bold text-slate-800">₹{(taxAmount / 2).toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-500 font-medium">
-                    <span>SGST 2.5%</span>
-                    <span className="font-bold text-slate-800">₹{(taxAmount / 2).toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm font-black text-slate-900 pt-1 border-t border-slate-200">
+                  <div className="flex items-center justify-between text-sm font-black text-slate-900 pt-1">
                     <span>TOTAL</span>
                     <span className="text-orange-600 text-base font-black">₹{grandTotal.toFixed(2)}</span>
                   </div>

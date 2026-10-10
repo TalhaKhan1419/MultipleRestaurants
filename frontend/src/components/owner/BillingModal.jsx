@@ -65,7 +65,7 @@ export default function BillingModal({ order, isOpen, onClose, onPaymentComplete
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
             <div className="mb-3 flex items-center justify-between font-semibold text-slate-700"><span>{(order.items || []).reduce((total, item) => total + Number(item.quantity || 0), 0)} items</span><span>{order.customerName || "Guest Diner"}</span></div>
-            <div className="space-y-1.5 text-slate-600"><div className="flex justify-between"><span>Subtotal</span><span>{money(order.subtotal)}</span></div><div className="flex justify-between"><span>Tax / GST</span><span>{money(order.taxAmount)}</span></div>{Number(order.discountAmount || 0) > 0 && <div className="flex justify-between text-emerald-700"><span>Discount</span><span>-{money(order.discountAmount)}</span></div>}</div>
+            <div className="space-y-1.5 text-slate-600"><div className="flex justify-between"><span>Subtotal</span><span>{money(order.subtotal)}</span></div>{Number(order.taxAmount || 0) > 0 && <div className="flex justify-between"><span>Tax / GST</span><span>{money(order.taxAmount)}</span></div>}{Number(order.discountAmount || 0) > 0 && <div className="flex justify-between text-emerald-700"><span>Discount</span><span>-{money(order.discountAmount)}</span></div>}</div>
             <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 text-base font-bold text-slate-900"><span>Grand Total</span><span className="text-emerald-600">{money(order.totalAmount)}</span></div>
           </div>
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { UtensilsCrossed, Shield, Store, Lock, Mail, ArrowRight, AlertCircle, Sparkles, QrCode } from "lucide-react";
+import { UtensilsCrossed, Lock, Mail, ArrowRight, AlertCircle, QrCode } from "lucide-react";
 import ForgotPasswordModal from "./ForgotPasswordModal";
 
 export default function LoginView({ onOpenCustomerView }) {
@@ -22,17 +22,6 @@ export default function LoginView({ onOpenCustomerView }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickLogin = (demoEmail, demoPass) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
-    setLoading(true);
-    login(demoEmail, demoPass).catch((err) => {
-      setError(err.message || "Failed to log in");
-      setLoading(false);
-    });
   };
 
   return (
@@ -121,41 +110,7 @@ export default function LoginView({ onOpenCustomerView }) {
             </button>
           </form>
 
-          {/* One Click Demo Logins */}
-          <div className="mt-7 pt-5 border-t border-orange-100">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#87644a] mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-              <span>Quick Demo Sign-in</span>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin("superadmin@restaurant.local", "Password123!")}
-                disabled={loading}
-                className="p-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-left transition-colors group cursor-pointer"
-              >
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-orange-700 mb-0.5">
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Super Admin</span>
-                </div>
-                <div className="text-[11px] text-[#87644a] truncate">Platform Overview</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin("owner@demorestaurant.local", "Password123!")}
-                disabled={loading}
-                className="p-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-left transition-colors group cursor-pointer"
-              >
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-orange-700 mb-0.5">
-                  <Store className="w-3.5 h-3.5" />
-                  <span>Restaurant Admin</span>
-                </div>
-                <div className="text-[11px] text-[#87644a] truncate">Demo Restaurant</div>
-              </button>
-            </div>
-          </div>
 
           {/* Customer View Link */}
           <div className="mt-4 pt-3 text-center">
