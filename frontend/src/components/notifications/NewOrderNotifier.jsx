@@ -7,6 +7,7 @@ import {
   X,
   ChevronRight,
   CheckCircle,
+  XCircle,
   Loader2,
 } from "lucide-react";
 
@@ -15,6 +16,8 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
   const [pendingCount, setPendingCount] = useState(0);
   const [accepting, setAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
   const seenOrderIdsRef = useRef(new Set());
   const isInitializedRef = useRef(false);
 
@@ -30,6 +33,7 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
     // Trigger Popup alert
     setActiveAlert(order);
     setAccepted(false);
+    setCancelled(false);
     setPendingCount((prev) => prev + 1);
   }, []);
 
@@ -89,22 +93,22 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
     };
   }, [handleNewOrderReceived]);
 
-  // Auto-dismiss alert popup after 16 seconds if not interacted with
+  // Auto-dismiss alert popup after 20 seconds if not interacted with
   useEffect(() => {
-    if (!activeAlert || accepted) return;
+    if (!activeAlert || accepted || cancelled) return;
     const timer = setTimeout(() => {
       setActiveAlert(null);
-    }, 16000);
+    }, 20000);
 
     return () => clearTimeout(timer);
-  }, [activeAlert, accepted]);
+  }, [activeAlert, accepted, cancelled]);
 
   const handleAcceptOrder = async (e) => {
     e.stopPropagation();
-    if (!activeAlert || !activeAlert.id || accepting) return;
+    if (!activeAlert || !activeAlert.id || accepting || cancelling) return;
     setAccepting(true);
     try {
-      // 1. Confirm order and move kitchen status to preparing
+      // Confirm order and move kitchen status to preparing
       await api.owner.updateOrderStatus(activeAlert.id, "confirmed");
       await api.owner.updateKitchenStatus(activeAlert.id, "preparing");
 
@@ -121,11 +125,44 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
       setTimeout(() => {
         setActiveAlert(null);
         setAccepted(false);
-      }, 1000);
+      }, 1200);
     } catch (err) {
       alert("Failed to accept order: " + (err.message || "Error"));
     } finally {
       setAccepting(false);
+    }
+  };
+
+  const handleCancelOrder = async (e) => {
+    e.stopPropagation();
+    if (!activeAlert || !activeAlert.id || cancelling || accepting) return;
+
+    if (!window.confirm(`Are you sure you want to cancel / reject Order #${activeAlert.orderNumber || activeAlert.id}?`)) {
+      return;
+    }
+
+    setCancelling(true);
+    try {
+      await api.owner.updateOrderStatus(activeAlert.id, "cancelled");
+      await api.owner.updateKitchenStatus(activeAlert.id, "cancelled");
+
+      try {
+        const bc = new BroadcastChannel("pos_orders");
+        bc.postMessage({ type: "KOT_UPDATE", ticketId: activeAlert.id, newStatus: "cancelled" });
+        bc.close();
+      } catch (err) {}
+
+      localStorage.setItem("last_pos_order_ts", Date.now().toString());
+
+      setCancelled(true);
+      setTimeout(() => {
+        setActiveAlert(null);
+        setCancelled(false);
+      }, 1200);
+    } catch (err) {
+      alert("Failed to cancel order: " + (err.message || "Error"));
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -135,7 +172,7 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
   const itemsCount = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
   const itemsSummary = items
     .slice(0, 2)
-    .map((i) => `${i.itemName} x${i.quantity}`)
+    .map((i) => `${i.quantity || 1}x ${i.itemName}`)
     .join(", ");
   const hasMoreItems = items.length > 2;
 
@@ -162,14 +199,14 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-black text-slate-900 tracking-tight">
-                  New Order Received!
+                  New Customer Order!
                 </h4>
                 <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
                   {activeAlert.tableNumber ? `Table ${activeAlert.tableNumber}` : "Takeaway"}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                Order #{activeAlert.orderNumber} • Just now
+                Order #{activeAlert.orderNumber || activeAlert.id} • Just now
               </p>
             </div>
           </div>
@@ -192,7 +229,7 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
           <div className="flex items-center justify-between font-medium">
             <span className="text-slate-500 flex items-center gap-1">
               <UtensilsCrossed className="w-3.5 h-3.5 text-orange-500" />
-              <span>{itemsCount} item{itemsCount > 1 ? "s" : ""}:</span>
+              <span>{itemsCount} item{itemsCount !== 1 ? "s" : ""}:</span>
             </span>
             <span className="font-bold text-emerald-600 text-sm">
               ₹{Number(activeAlert.totalAmount || 0).toFixed(2)}
@@ -207,24 +244,43 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
         {/* Action button row */}
         <div className="flex items-center justify-between pt-1 gap-2">
           {accepted ? (
-            <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 w-full justify-center">
+            <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200 w-full justify-center">
               <CheckCircle className="w-4 h-4" />
               <span>Order Accepted & Sent to KOT!</span>
+            </div>
+          ) : cancelled ? (
+            <div className="flex items-center gap-1.5 text-rose-600 text-xs font-bold bg-rose-50 px-3 py-2 rounded-xl border border-rose-200 w-full justify-center">
+              <XCircle className="w-4 h-4" />
+              <span>Order Cancelled / Rejected!</span>
             </div>
           ) : (
             <>
               <button
                 type="button"
                 onClick={handleAcceptOrder}
-                disabled={accepting}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-extrabold text-xs py-2 px-3 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                disabled={accepting || cancelling}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-extrabold text-xs py-2 px-2.5 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-1 cursor-pointer"
               >
                 {accepting ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <CheckCircle className="w-4 h-4" />
                 )}
-                <span>Accept Order</span>
+                <span>Accept</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCancelOrder}
+                disabled={accepting || cancelling}
+                className="bg-rose-50 hover:bg-rose-100 border border-rose-200 disabled:opacity-50 text-rose-700 font-extrabold text-xs py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+              >
+                {cancelling ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-rose-600" />
+                )}
+                <span>Cancel</span>
               </button>
 
               <button
@@ -233,9 +289,9 @@ export default function NewOrderNotifier({ orders, onOpenOrder, onPendingCountCh
                   if (onOpenOrder) onOpenOrder(activeAlert);
                   setActiveAlert(null);
                 }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2 px-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
               >
-                <span>View Details</span>
+                <span>Details</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </>
